@@ -1,0 +1,38 @@
+# ===== Dependencies =====
+node_modules/
+
+# ===== Next.js build output =====
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# ===== Environment (JANGAN di-commit: berisi JWT_SECRET & kredensial) =====
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ===== Database lokal & backup (data runtime, bukan source code) =====
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-wal
+prisma/*.db-shm
+backups/
+
+# ===== Logs =====
+*.log
+logs/
+pm2-*.log
+
+# ===== OS / Editor =====
+.DS_Store
+Thumbs.db
+.idea/
+
+# Catatan: folder public/uploads TIDAK di-ignore karena berisi aset
+# (logo, background, foto) yang dibutuhkan saat deploy.
+
+# ===== Kunci SSH deploy (lokal saja — JANGAN di-commit) =====
+deploy/ssh/id_presensi
+!deploy/ssh/*.example

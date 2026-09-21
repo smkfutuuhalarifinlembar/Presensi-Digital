@@ -1,0 +1,56 @@
+# ==========================================================================
+#  Docker Compose — Presensi Digital Sekolah (Aplikasi + PostgreSQL)
+#
+#  Jalankan:
+#    docker compose up -d --build
+#    docker compose exec presensi-app npx prisma db push
+#    docker compose exec presensi-app npm run db:seed     # hanya untuk data awal
+#
+#  Jangan lupa isi file .env (JWT_SECRET, NEXT_PUBLIC_APP_URL).
+# ==========================================================================
+
+services:
+  presensi-db:
+    image: postgres:16-alpine
+    container_name: presensi_db
+    restart: always
+    environment:
+      POSTGRES_USER: presensi_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-presensi_password_kuat}
+      POSTGRES_DB: presensi_sekolah
+    volumes:
+      - presensi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U presensi_user -d presensi_sekolah"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  presensi-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: presensi_digital_sekolah
+    restart: always
+    depends_on:
+      presensi-db:
+        condition: service_healthy
+    # Variabel dari .env (JWT_SECRET, NEXT_PUBLIC_APP_URL, dll)
+    env_file:
+      - .env
+    environment:
+      # Hostname "presensi-db" = nama service database di atas
+      DATABASE_URL: postgresql://presensi_user:${POSTGRES_PASSWORD:-presensi_password_kuat}@presensi-db:5432/presensi_sekolah?schema=public
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    ports:
+      # Hanya diakses oleh Nginx di host (tidak diekspos langsung ke internet)
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # File upload tersimpan di host agar tidak hilang saat container di-rebuild
+      - ./public/uploads:/app/public/uploads
+
+volumes:
+  presensi_pgdata:
+

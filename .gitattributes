@@ -1,0 +1,27 @@
+# ==========================================================================
+#  Normalisasi akhir baris (line ending)
+#  Penting: script shell WAJIB berakhiran LF agar bisa dijalankan di VPS
+#  Linux. Bila CRLF, error yang muncul: "$'\r': command not found".
+# ==========================================================================
+* text=auto
+
+*.sh   text eol=lf
+*.bash text eol=lf
+
+# File konfigurasi & source (selalu LF agar konsisten antar OS)
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.prisma text eol=lf
+
+# Biner — jangan dinormalisasi
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.xlsx binary
+*.zip  binary
+*.db   binary

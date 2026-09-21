@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id               String             @id @default(cuid())
+  username         String             @unique
+  passwordHash     String
+  name             String
+  role             String             @default("ADMIN_OPERATOR")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  manualAttendance AttendanceRecord[]
+  auditLogs        AuditLog[]
+}
+
+model Institution {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  level     String   @default("SD")
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  people    Person[]
+  activities Activity[]
+}
+
+model Person {
+  id            String             @id @default(cuid())
+  nisNip        String             @unique
+  name          String
+  role          String
+  className     String?
+  position      String?
+  phone         String?
+  parentPhone   String?
+  rfidUid       String?            @unique
+  qrCodeToken   String             @unique
+  photoUrl      String?
+  gender        String?            @default("L")
+  isActive      Boolean            @default(true)
+  institutionId String?
+  institution   Institution?       @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  attendances   AttendanceRecord[]
+  leaveRequests LeaveRequest[]
+}
+
+model Activity {
+  id                 String             @id @default(cuid())
+  name               String
+  daysOfWeek         String             @default("ALL")
+  specificDate       String?
+  startTime          String
+  endTime            String
+  lateCutoffTime     String
+  gracePeriodMinutes Int                @default(0)
+  targetRoles        String             @default("ALL")
+  targetClasses      String             @default("ALL")
+  institutionId      String?
+  institution        Institution?       @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  attendances        AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id                   String   @id @default(cuid())
+  personId             String
+  activityId           String
+  dateString           String
+  timeString           String
+  timestamp            DateTime @default(now())
+  status               String
+  method               String   @default("RFID")
+  remarks              String?
+  recordedByAdminId    String?
+  waNotificationSent   Boolean  @default(false)
+  waNotificationStatus String?
+  createdAt            DateTime @default(now())
+  recordedByAdmin      Admin?   @relation(fields: [recordedByAdminId], references: [id])
+  activity             Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  person               Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, activityId, dateString])
+}
+
+model SchoolSetting {
+  id                         String   @id @default("default")
+  name                       String   @default("SMK Negeri 1 Nusantara")
+  npsn                       String   @default("20214567")
+  address                    String   @default("Jl. Pendidikan No. 45, Kebayoran Baru, Jakarta Selatan")
+  phone                      String   @default("(021) 789-0123")
+  email                      String   @default("info@smkn1nusantara.sch.id")
+  website                    String?  @default("https://smkn1nusantara.sch.id")
+  principalName              String   @default("Drs. H. Bambang Sudirman, M.Pd.")
+  principalNip               String   @default("197103151998021003")
+  principalSignatureUrl      String?
+  logoUrl                    String?
+  kioskBackgroundUrl         String?
+  kioskBackgroundColor       String   @default("#0f172a")
+  kioskHeaderSubtitle        String   @default("Sistem Presensi Digital Terpadu & Terpercaya")
+  cardValidity               String   @default("2026/2027")
+  academicYear               String   @default("2026/2027")
+  cardBackNotes              String   @default("1. Kartu ini merupakan tanda pengenal resmi di lingkungan sekolah.\n2. Wajib dibawa setiap hari kerja/sekolah untuk keperluan presensi.\n3. Jangan melipat, membengkokkan, atau merusak kartu RFID ini.\n4. Apabila menemukan kartu ini, mohon kembalikan ke kantor Tata Usaha.")
+  cardBackgroundMode         String   @default("KIOSK")
+  cardSolidColor             String   @default("#1e3a8a")
+  cardGradientFrom           String   @default("#1e40af")
+  cardGradientTo             String   @default("#3730a3")
+  cardBackgroundImageUrl     String?
+  cardSiswaColor             String   @default("#1e3a8a")
+  cardGuruColor              String   @default("#065f46")
+  cardPegawaiColor           String   @default("#7c2d12")
+  cardKepsekColor            String   @default("#581c87")
+  cardBackBackgroundMode     String   @default("SOLID")
+  cardBackBackgroundImageUrl String?
+  cardBackSolidColor         String   @default("#ffffff")
+  useSameBackBg              Boolean  @default(false)
+  headerLogoLeftUrl          String?
+  headerLogoRightUrl         String?
+  headerLines                String?
+  headerFont                 String   @default("text-xs")
+  headerTextColor            String   @default("#0f172a")
+  yayasanEnabled             Boolean  @default(false)
+  yayasanName                String   @default("Yayasan Pendidikan")
+  updatedAt                  DateTime @updatedAt
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  dateString  String   @unique
+  name        String
+  type        String   @default("NATIONAL")
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WaGatewayConfig {
+  id                    String   @id @default("default")
+  provider              String   @default("FONNTE")
+  isEnabled             Boolean  @default(false)
+  updatedAt             DateTime @updatedAt
+  fonnteApiKey          String?
+  fonnteEndpointUrl     String?
+  saungwaApiKey         String?
+  saungwaAuthKey        String?
+  saungwaEndpointUrl    String?
+  saungwaSenderNumber   String?
+  customName            String?
+  customEndpointUrl     String?
+  customApiKey          String?
+  customMethod          String   @default("POST")
+  customHeadersJson     String?
+  customBodyMappingJson String?
+}
+
+model WaTemplate {
+  id              String   @id @default(cuid())
+  role            String   @default("ALL")
+  status          String
+  contentTemplate String
+  updatedAt       DateTime @updatedAt
+
+  @@unique([role, status])
+}
+
+model LeaveRequest {
+  id                   String   @id @default(cuid())
+  personId             String
+  personName           String
+  nisNip               String
+  role                 String   @default("SISWA")
+  className            String?
+  position             String?
+  parentPhone          String?
+  personPhone          String?
+  waliKelasPhone       String?
+  reasonType           String   @default("SAKIT")
+  customReason         String?
+  dateString           String
+  proofImageUrl        String?
+  proofBlobPathname    String?
+  proofDriveId         String?
+  proofDriveLink       String?
+  parentPhotoUrl       String?
+  parentPhotoBlobPathname String?
+  parentPhotoDriveId   String?
+  parentPhotoDriveLink String?
+  signatureDataUrl     String?
+  signatureDriveId     String?
+  message              String?
+  status               String   @default("PENDING")
+  submittedAt          DateTime @default(now())
+  reviewedAt           DateTime?
+  reviewedByAdminId    String?
+  reviewedByAdminName  String?
+  reviewNote           String?
+  waToTuStatus         String?
+  waResultStatus       String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  person               Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([status, dateString])
+  @@index([personId, dateString])
+}
+
+model LeaveSetting {
+  id                   String   @id @default("default")
+  isEnabled            Boolean  @default(true)
+  title                String   @default("Formulir Izin Tidak Masuk Sekolah")
+  subtitle             String?  @default("Silakan isi pengajuan izin di bawah ini dengan lengkap dan jujur.")
+  requireProof         Boolean  @default(true)
+  requireParentPhoto   Boolean  @default(true)
+  requireSignature     Boolean  @default(true)
+  allowedReasonsJson   String?  @default("[\"SAKIT\",\"IZIN\",\"KEPERLUAN_KELUARGA\",\"DINAS\",\"LAINNYA\"]")
+  tuWaNumbers          String?  @default("")
+  waliKelasMapJson     String?  @default("{}")
+  waliKelasDefaultWa   String?
+  notifyParent         Boolean  @default(true)
+  notifyWaliKelas      Boolean  @default(true)
+  autoCreateAttendance Boolean  @default(true)
+  // Jika true: pengajuan langsung APPROVED otomatis saat dikirim (tanpa antre TU),
+  // WA hasil langsung terkirim + presensi otomatis tercatat.
+  autoApprove          Boolean  @default(false)
+  driveEnabled         Boolean  @default(false)
+  driveFolderId        String?  @default("1kk1p30xrosFap-3emPsc2vAemIW3ISG5")
+  templatePengajuan    String?  @default("🔔 *PENGAJUAN IZIN BARU*\n\nNama: {nama}\nNIS: {nis}\nKelas: {kelas}\nKeterangan: {keterangan}\nTanggal: {tanggal}\nPesan: {pesan}\n📄 Surat Izin: {link_surat}\n📷 Foto Bukti: {link_foto}\n\nMohon segera ditinjau di panel TU/Operator.")
+  templateDisetujui    String?  @default("✅ *Izin Disetujui*\n\nYth. Orang Tua/Wali Siswa\n\nBerikut informasi perizinan:\n\n👤 *Nama : {nama_siswa}*\n🏫 *Kelas : {kelas}*\n📋 *Keterangan : {keterangan}*\n📅 *Tanggal : {tanggal}*\n💬 *Pesan : {pesan}*\n\n📄 Surat Izin: {link_surat}\n📷 Foto Bukti: {link_foto}\n\nIzin telah *DISETUJUI* oleh pihak sekolah.\n\nSalam,\n{nama_sekolah}")
+  templateDitolak      String?  @default("❌ *Izin Ditolak*\n\nYth. Siswa/Orang Tua\n\n👤 *Nama : {nama_siswa}*\n🏫 *Kelas : {kelas}*\n📋 *Keterangan : {keterangan}*\n📅 *Tanggal : {tanggal}*\n\nMohon maaf, pengajuan izin Anda *DITOLAK* oleh pihak sekolah.\nSilakan hubungi wali kelas untuk informasi lebih lanjut.\n\nSalam,\n{nama_sekolah}")
+  templateSetujuOrtu   String?
+  templateSetujuWali   String?  @default("✅ *Pemberitahuan Izin Disetujui*\n\nMohon pesan ini diteruskan ke Grup Guru atau Guru Mapel.\n\nYth. Wali Kelas {kelas}\n\nDengan ini memberitahukan bahwa:\n\n👤 *Nama : {nama_siswa}*\n🏫 *Kelas : {kelas}*\n📋 *Keterangan : {keterangan}*\n📅 *Tanggal : {tanggal}*\n💬 *Pesan : {pesan}*\n\n📄 Surat Izin: {link_surat}\n📷 Foto Bukti: {link_foto}\n\nIzin telah *DISETUJUI* oleh pihak sekolah.\n\nSalam,\n{nama_sekolah}")
+  templateTolakOrtu     String?  @default("❌ *Izin Ditolak*\n\nYth. Siswa/Orang Tua\n\n👤 *Nama : {nama_siswa}*\n🏫 *Kelas : {kelas}*\n📋 *Keterangan : {keterangan}*\n📅 *Tanggal : {tanggal}*\n\nMohon maaf, pengajuan izin Anda *DITOLAK* oleh pihak sekolah.\nSilakan hubungi wali kelas untuk informasi lebih lanjut.\n\nSalam,\n{nama_sekolah}")
+  templateTolakWali     String?  @default("❌ *Pemberitahuan Izin Ditolak*\n\nYth. Wali Kelas {kelas}\n\nDengan ini memberitahukan bahwa:\n\n👤 *Nama : {nama_siswa}*\n🏫 *Kelas : {kelas}*\n📋 *Keterangan : {keterangan}*\n📅 *Tanggal : {tanggal}*\n💬 *Pesan : {pesan}*\n\nIzin telah *DITOLAK* oleh pihak sekolah.\n\nSalam,\n{nama_sekolah}")
+  updatedAt            DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String?
+  adminName String
+  action    String
+  target    String
+  details   String?
+  ipAddress String?
+  timestamp DateTime @default(now())
+  admin     Admin?   @relation(fields: [adminId], references: [id])
+}

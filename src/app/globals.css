@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 248, 250, 252;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #0b1329;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* ===================================================
+   PRINT STYLES FOR ID CARDS & REPORTS (UKURAN A4)
+   =================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 6mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt;
+  }
+
+  /* Sembunyikan elemen navigasi dan tombol saat mencetak */
+  .no-print,
+  nav,
+  aside,
+  header,
+  footer,
+  button,
+  .btn,
+  .sidebar,
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset layout container saat dicetak */
+  .print-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Lembar A4 Cetak ID Card — kertas disembunyikan, hanya kartu yang tercetak */
+  .a4-page {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .a4-page:last-child {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* Paksa warna & gambar background kartu tercetak tanpa perlu
+     mengaktifkan "Background graphics" di pengaturan print browser */
+  .a4-page * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Tabel Laporan Presensi Print-Friendly */
+  .print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10px !important;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #333333 !important;
+    padding: 6px 8px !important;
+    color: #000000 !important;
+    font-size: 9pt !important;
+  }
+
+  .print-table th {
+    background-color: #f1f5f9 !important;
+    font-weight: bold !important;
+    text-align: left !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Matriks Bulanan: gunakan landscape & scaling */
+  .print-landscape {
+    page-break-inside: auto !important;
+  }
+
+  /* Tabel Matriks Print - fit 1 halaman A4 landscape */
+  .matrix-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 7pt !important;
+    table-layout: auto !important;
+  }
+
+  .matrix-table th,
+  .matrix-table td {
+    border: 1px solid #333333 !important;
+    padding: 2px 1px !important;
+    font-size: 7pt !important;
+    line-height: 1.2 !important;
+    color: #000000 !important;
+    text-align: center !important;
+  }
+
+  .matrix-table th {
+    background-color: #f1f5f9 !important;
+    font-weight: bold !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .matrix-table td:first-child,
+  .matrix-table th:first-child {
+    text-align: left !important;
+    position: static !important;
+    min-width: 100px !important;
+  }
+
+  .matrix-table td:nth-child(2),
+  .matrix-table th:nth-child(2) {
+    text-align: left !important;
+    min-width: 60px !important;
+  }
+
+  .matrix-table td:nth-child(3),
+  .matrix-table th:nth-child(3) {
+    text-align: left !important;
+    min-width: 60px !important;
+  }
+
+  .matrix-table * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Sembunyikan summary chips saat print */
+  .no-print {
+    display: none !important;
+  }
+}
+
+@media print and (orientation: landscape) {
+  @page {
+    size: A4 landscape;
+    margin: 8mm 6mm;
+  }
+}
