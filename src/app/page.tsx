@@ -423,6 +423,7 @@ export default function KioskPage() {
               <Link href="/izin" className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-xs sm:text-sm border border-amber-500/50 shadow-lg flex items-center justify-center gap-2 sm:gap-3"><FileText className="w-4 h-4 sm:w-5 sm:h-5" /><span>Izin Tidak Masuk Sekolah</span></Link>
             </>
           )}
+        </div>
 
           {/* Live Ticker Presensi Terbaru - lebih compact */}
           <div className="w-full mt-3 sm:mt-4 lg:mt-6">
@@ -448,8 +449,7 @@ export default function KioskPage() {
                 <>
                   <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Audio Aktif</span>
-                <span>Audio Aktif</span>
-              </>
+                </>
             ) : (
               <>
                 <VolumeX className="w-4 h-4 text-rose-400" />
