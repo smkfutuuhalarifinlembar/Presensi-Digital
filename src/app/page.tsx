@@ -289,12 +289,12 @@ export default function KioskPage() {
       />
 
       {/* Konten Utama Kiosk */}
-      <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 max-w-5xl mx-auto w-full z-10">
+      <main className="flex-1 flex flex-col items-center justify-center p-3 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full z-10">
         {/* Banner Status Sesi Presensi */}
-        <div className="w-full text-center mb-6">
+        <div className="w-full text-center mb-3 sm:mb-4 lg:mb-6">
           {isSessionOpen ? (
             <div
-              className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border shadow-lg animate-pulse"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-lg animate-pulse"
               style={{
                 backgroundColor: "#064e3b",
                 borderColor: "#10b981",
@@ -302,22 +302,22 @@ export default function KioskPage() {
                 boxShadow: "0 8px 24px rgba(16, 185, 129, 0.18)",
               }}
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-sm sm:text-base font-bold tracking-wide">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-xs sm:text-sm font-bold tracking-wide">
                 SESI PRESENSI AKTIF: {activeActivity.name} ({activeActivity.startTime} - {activeActivity.endTime})
               </span>
             </div>
           ) : (
             <div
-              className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border"
               style={{
                 backgroundColor: "#0f172a",
                 borderColor: "#334155",
                 color: "#cbd5e1",
               }}
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-500" />
-              <span className="text-sm font-medium">
+              <span className="w-2 h-2 rounded-full bg-slate-500" />
+              <span className="text-xs font-medium">
                 Sesi presensi saat ini sedang ditutup atau belum tiba jadwalnya.
               </span>
             </div>
@@ -327,20 +327,20 @@ export default function KioskPage() {
         {/* Pesan Error / Peringatan Floating */}
         {errorMessage && (
           <div
-            className="mb-6 w-full max-w-xl border-2 px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200"
+            className="mb-3 w-full max-w-xl border-2 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200"
             style={{
               backgroundColor: "#4c0519",
               borderColor: "#f43f5e",
               color: "#fecdd3",
             }}
           >
-            <AlertCircle className="w-6 h-6 text-rose-300 shrink-0" />
-            <div className="text-sm font-semibold">{errorMessage}</div>
+            <AlertCircle className="w-5 h-5 text-rose-300 shrink-0" />
+            <div className="text-xs font-semibold">{errorMessage}</div>
           </div>
         )}
 
         {/* Card Mode Presensi (RFID Default atau QR Code embedded) */}
-        <div className="w-full max-w-2xl bg-slate-900/80 backdrop-blur-xl border-2 border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl flex flex-col items-center text-center relative group min-h-[420px]">
+        <div className="w-full max-w-xl bg-slate-900/80 backdrop-blur-xl border-2 border-slate-800 rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl flex flex-col items-center text-center relative group min-h-[320px] sm:min-h-[400px]">
           {/* Efek Glow Animasi */}
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition duration-1000 -z-10" />
 
@@ -362,7 +362,7 @@ export default function KioskPage() {
             <>
               {/* Mode Badge Default */}
               <div
-                className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border text-xs font-semibold mb-6"
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-semibold mb-4 sm:mb-6"
                 style={{
                   backgroundColor: "#1e3a8a",
                   borderColor: "#3b82f6",
@@ -415,39 +415,39 @@ export default function KioskPage() {
               <button
                 type="button"
                 onClick={() => setIsQrModalOpen(true)}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm sm:text-base border border-slate-700 hover:border-slate-600 shadow-lg flex items-center justify-center gap-3 transition transform active:scale-95"
+                className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs sm:text-sm border border-slate-700 hover:border-slate-600 shadow-lg flex items-center justify-center gap-2 sm:gap-3 transition transform active:scale-95"
               >
-                <QrCode className="w-5 h-5 text-blue-400" />
+                <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                 <span>Beralih ke Mode Scan Kamera (QR Code)</span>
               </button>
-              <Link href="/izin" className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm sm:text-base border border-amber-500/50 shadow-lg flex items-center justify-center gap-3"><FileText className="w-5 h-5" /><span>Izin Tidak Masuk Sekolah</span></Link>
+              <Link href="/izin" className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-xs sm:text-sm border border-amber-500/50 shadow-lg flex items-center justify-center gap-2 sm:gap-3"><FileText className="w-4 h-4 sm:w-5 sm:h-5" /><span>Izin Tidak Masuk Sekolah</span></Link>
             </>
           )}
-        </div>
 
-        {/* Live Ticker Presensi Terbaru */}
-        <div className="w-full mt-8">
-          <RecentPresenceTicker
-            recentAttendances={kioskData?.recentAttendances || []}
-            stats={kioskData?.stats || { total: 0, hadir: 0, terlambat: 0 }}
-          />
-        </div>
-      </main>
+          {/* Live Ticker Presensi Terbaru - lebih compact */}
+          <div className="w-full mt-3 sm:mt-4 lg:mt-6">
+            <RecentPresenceTicker
+              recentAttendances={kioskData?.recentAttendances || []}
+              stats={kioskData?.stats || { total: 0, hadir: 0, terlambat: 0 }}
+            />
+          </div>
+        </main>
 
-      {/* Footer Kiosk */}
-      <footer className="w-full bg-slate-950/90 border-t border-slate-800/80 px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 z-20">
-        <div className="flex items-center gap-4">
-          <span>© {new Date().getFullYear()} {school.name}</span>
-          <span>•</span>
-          <button
-            type="button"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="flex items-center gap-1.5 hover:text-slate-300 transition"
-            title="Aktifkan/Nonaktifkan Suara"
-          >
-            {soundEnabled ? (
-              <>
-                <Volume2 className="w-4 h-4 text-emerald-400" />
+        {/* Footer Kiosk - lebih compact */}
+        <footer className="w-full bg-slate-950/90 border-t border-slate-800/80 px-3 sm:px-6 py-2 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 z-20">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span>© {new Date().getFullYear()} {school.name}</span>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className="flex items-center gap-1 hover:text-slate-300 transition"
+              title="Aktifkan/Nonaktifkan Suara"
+            >
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Audio Aktif</span>
                 <span>Audio Aktif</span>
               </>
             ) : (
