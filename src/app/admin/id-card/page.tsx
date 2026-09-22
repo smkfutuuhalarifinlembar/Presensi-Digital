@@ -570,20 +570,34 @@ export default function IdCardPrintPage() {
 
                           {/* Detail Identitas */}
                           <div className="flex-1 min-w-0 space-y-0.5 text-left bg-black/40 rounded-md p-1 -m-1">
-                            <div className="text-[12px] font-black text-white leading-tight line-clamp-2">
-                              {card.name}
+                            <div className="text-[8.5px] leading-tight">
+                              <span className="text-blue-200 font-semibold">Nama : </span>
+                              <span className="text-[11px] font-black text-white line-clamp-2 inline">
+                                {card.name}
+                              </span>
                             </div>
-                            <div className="text-[9px] text-blue-200 font-mono font-bold">
-                              {card.role === "SISWA" ? "NIS" : "NIP"}: {card.nisNip}
+                            <div className="text-[9px] text-blue-200 font-mono">
+                              <span className="font-sans font-semibold">{card.role === "SISWA" ? "NIS" : "NIP"} : </span>
+                              <span className="font-bold">{card.nisNip}</span>
                             </div>
-                            {/* Kelas tidak ditampilkan untuk SISWA; jabatan ditampilkan untuk GURU/PEGAWAI/KEPSEK */}
-                            {card.role !== "SISWA" && card.position && (
+                            {/* Kelas untuk SISWA; jabatan untuk GURU/PEGAWAI/KEPSEK */}
+                            {card.role === "SISWA" ? (
                               <div className="text-[8.5px] text-amber-300 font-bold uppercase truncate">
-                                {card.position}
+                                <span>Kelas : </span>
+                                <span>{card.className || "-"}</span>
                               </div>
+                            ) : (
+                              card.position && (
+                                <div className="text-[8.5px] text-amber-300 font-bold uppercase truncate">
+                                  {card.position}
+                                </div>
+                              )
                             )}
-                            <div className="inline-block px-1.5 py-0.2 rounded text-[7px] font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: roleColor }}>
-                              {card.role}
+                            <div className="text-[8.5px] text-blue-200">
+                              <span className="font-semibold">Role : </span>
+                              <span className="inline-block px-1.5 py-0.2 rounded text-[7px] font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: roleColor }}>
+                                {card.role}
+                              </span>
                             </div>
                           </div>
                         </div>
