@@ -64,7 +64,27 @@ export async function PUT(
       gender,
       photoUrl,
       isActive,
+      institutionId,
     } = body;
+
+    // Validasi Lembaga / Unit (fitur Yayasan) bila diisi
+    let institutionIdValue: string | null | undefined = undefined;
+    if (institutionId !== undefined) {
+      if (institutionId) {
+        const institution = await prisma.institution.findUnique({
+          where: { id: String(institutionId) },
+        });
+        if (!institution) {
+          return NextResponse.json(
+            { error: "Lembaga / Unit yang dipilih tidak ditemukan." },
+            { status: 400 }
+          );
+        }
+        institutionIdValue = institution.id;
+      } else {
+        institutionIdValue = null;
+      }
+    }
 
     // Cek duplikasi NIS/NIP jika berubah
     if (nisNip) {
@@ -112,6 +132,21 @@ export async function PUT(
         gender: gender !== undefined ? gender : undefined,
         photoUrl: photoUrl !== undefined ? photoUrl : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
+        // Lembaga / Unit (fitur Yayasan) — ikut disimpan saat edit,
+        // nilai undefined = tidak diubah, null = dilepas dari lembaga.
+        institutionId: institutionIdValue,
+        // CATATAN: `qrCodeToken` sengaja TIDAK di-generate ulang.
+        // Token QR adalah data kartu yang sudah tercetak, jadi tetap dibiarkan
+        // walau NIS/NIP berubah agar kartu lama tetap bisa di-scan di kiosk.
+      },
+    });
+
+    // Info lembaga sesudah perubahan, untuk jejak audit
+    const updatedWithInstitution = await prisma.person.findUnique({
+      where: { id: updated.id },
+      select: {
+        institutionId: true,
+        institution: { select: { name: true, level: true } },
       },
     });
 
@@ -121,7 +156,11 @@ export async function PUT(
         adminName: admin.name,
         action: "UPDATE_PERSON",
         target: `${updated.role}: ${updated.name}`,
-        details: `Mengubah data profil (NIS/NIP: ${updated.nisNip})`,
+        details: `Mengubah data profil (NIS/NIP: ${updated.nisNip}) — Lembaga/Unit: ${
+          updatedWithInstitution?.institution
+            ? `${updatedWithInstitution.institution.name} (${updatedWithInstitution.institution.level})`
+            : "Tanpa Lembaga"
+        }`,
       },
     });
 

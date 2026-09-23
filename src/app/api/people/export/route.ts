@@ -21,6 +21,9 @@ export async function GET(req: Request) {
     const people = await prisma.person.findMany({
       where,
       orderBy: [{ role: "asc" }, { className: "asc" }, { name: "asc" }],
+      include: {
+        institution: { select: { id: true, code: true, name: true, level: true } },
+      },
     });
 
     const buffer = exportPeopleToExcelBuffer(people);

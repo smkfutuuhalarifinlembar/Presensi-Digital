@@ -42,39 +42,68 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Cari Data Orang
-    let person = null;
-    if (method === "RFID") {
-      person = await prisma.person.findFirst({
-        where: {
-          OR: [
-            { rfidUid: cleanCode },
-            { rfidUid: cleanCode.toUpperCase() },
-            { nisNip: cleanCode },
-          ],
-          isActive: true,
-        },
-      });
-    } else {
-      person = await prisma.person.findFirst({
-        where: {
-          OR: [
-            { qrCodeToken: cleanCode },
-            { nisNip: cleanCode },
-            { rfidUid: cleanCode },
-          ],
-          isActive: true,
-        },
-      });
-    }
+    // 2. Cari Data Orang BERDASARKAN DATA KARTU (bukan NIS/NIP)
+    //    - RFID  -> hanya dicocokkan dengan kolom `rfidUid` (UID kartu RFID yang didaftarkan)
+    //    - QR    -> hanya dicocokkan dengan kolom `qrCodeToken` (isi QR Code yang tercetak di kartu)
+    //    - MANUAL -> khusus pengetikan manual NIS/NIP di layar kiosk
+    //    Tujuannya: presensi tidak lagi bergantung pada NIS/NIP yang bisa saja
+    //    belum ada / belum sesuai, tetapi murni pada data kartu yang terdaftar.
+    const methodUpper = String(method).toUpperCase();
+    const codeVariants = Array.from(
+      new Set([cleanCode, cleanCode.toUpperCase(), cleanCode.toLowerCase()])
+    );
 
-    if (!person) {
-      return NextResponse.json(
-        {
-          error: `Kartu / QR Code [${cleanCode}] tidak terdaftar dalam sistem. Hubungi bagian Tata Usaha.`,
+    let person = null;
+    if (methodUpper === "QR") {
+      person = await prisma.person.findFirst({
+        where: {
+          qrCodeToken: { in: codeVariants },
+          isActive: true,
         },
-        { status: 404 }
-      );
+      });
+
+      if (!person) {
+        return NextResponse.json(
+          {
+            error: `QR Code kartu [${cleanCode}] belum terdaftar. Cetak ulang kartu dari menu Cetak ID Card atau daftarkan di menu Kelola Orang.`,
+          },
+          { status: 404 }
+        );
+      }
+    } else if (methodUpper === "MANUAL") {
+      // Input manual (keyboard di layar kiosk) -> memakai NIS/NIP
+      person = await prisma.person.findFirst({
+        where: {
+          nisNip: cleanCode,
+          isActive: true,
+        },
+      });
+
+      if (!person) {
+        return NextResponse.json(
+          {
+            error: `NIS/NIP [${cleanCode}] tidak terdaftar dalam sistem. Hubungi bagian Tata Usaha.`,
+          },
+          { status: 404 }
+        );
+      }
+    } else {
+      // Default: pembacaan kartu RFID
+      person = await prisma.person.findFirst({
+        where: {
+          rfidUid: { in: codeVariants },
+          isActive: true,
+        },
+      });
+
+      if (!person) {
+        return NextResponse.json(
+          {
+            error: `Kartu RFID [${cleanCode}] belum terdaftar. Daftarkan kode kartunya di menu Kelola Orang lalu coba tap kembali.`,
+          },
+          { status: 404 }
+        );
+      }
     }
 
     // Simpan ke debounce cache

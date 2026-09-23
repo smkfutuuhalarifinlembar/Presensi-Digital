@@ -20,6 +20,7 @@ import {
   Radio,
   FileText,
   Image as ImageIcon,
+  Building2,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -490,6 +491,7 @@ export default function PeopleManagementPage() {
                   <th className="px-4 py-3.5 font-bold">ID</th>
                   <th className="px-4 py-3.5 font-bold">Kategori / Kelas</th>
                   <th className="px-4 py-3.5 font-bold">Kartu RFID</th>
+                  <th className="px-4 py-3.5 font-bold">Lembaga / Unit</th>
                   <th className="px-4 py-3.5 font-bold">Kontak WA</th>
                   <th className="px-5 py-3.5 font-bold text-right">Aksi</th>
                 </tr>
@@ -564,6 +566,25 @@ export default function PeopleManagementPage() {
                         ) : (
                           <span className="text-xs text-slate-500 italic">
                             Belum terdaftar
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Lembaga / Unit (fitur Yayasan) */}
+                      <td className="px-4 py-4">
+                        {p.institution?.name ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-blue-300 text-xs">
+                            <Building2 className="w-3 h-3 text-blue-300" />
+                            <span className="font-semibold">{p.institution.name}</span>
+                            {p.institution.level && (
+                              <span className="text-[10px] text-slate-400">
+                                ({p.institution.level})
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">
+                            Belum diatur
                           </span>
                         )}
                       </td>

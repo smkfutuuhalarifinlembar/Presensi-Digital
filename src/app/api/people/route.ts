@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAdmin } from "@/lib/auth";
+import { generateUniqueQrToken } from "@/lib/qr-token";
 
 export async function GET(req: Request) {
   try {
@@ -41,6 +42,9 @@ export async function GET(req: Request) {
         orderBy: [{ role: "asc" }, { className: "asc" }, { name: "asc" }],
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          institution: { select: { id: true, code: true, name: true, level: true } },
+        },
       }),
       prisma.person.findMany({
         where: { role: "SISWA", className: { not: null }, isActive: true },
@@ -122,8 +126,23 @@ export async function POST(req: Request) {
       }
     }
 
-    // Generate token QR Code unik
-    const qrToken = `QR-${role}-${nisNip.trim()}`;
+    // Validasi Lembaga / Unit (fitur Yayasan) bila diisi
+    let institutionIdValue: string | null = null;
+    if (institutionId) {
+      const institution = await prisma.institution.findUnique({
+        where: { id: String(institutionId) },
+      });
+      if (!institution) {
+        return NextResponse.json(
+          { error: "Lembaga / Unit yang dipilih tidak ditemukan." },
+          { status: 400 }
+        );
+      }
+      institutionIdValue = institution.id;
+    }
+
+    // Generate token QR Code unik (disimpan di kolom qrCodeToken / data kartu)
+    const qrToken = await generateUniqueQrToken(role, nisNip.trim());
 
     const newPerson = await prisma.person.create({
       data: {
@@ -138,7 +157,7 @@ export async function POST(req: Request) {
         qrCodeToken: qrToken,
         gender: gender === "P" ? "P" : "L",
         photoUrl: photoUrl || null,
-        institutionId: institutionId || null,
+        institutionId: institutionIdValue,
       },
     });
 

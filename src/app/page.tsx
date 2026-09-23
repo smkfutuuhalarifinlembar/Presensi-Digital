@@ -135,7 +135,7 @@ export default function KioskPage() {
   }, [isQrModalOpen, kioskData?.activeActivity]);
 
   // 4. Proses Presensi (RFID atau QR)
-  const processPresence = async (identifier: string, method: "RFID" | "QR") => {
+  const processPresence = async (identifier: string, method: "RFID" | "QR" | "MANUAL") => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -241,12 +241,13 @@ export default function KioskPage() {
   };
 
   // Handler input manual sementara untuk testing via keyboard di layar
+  // Memakai method "MANUAL" supaya pencarian memakai NIS/NIP (bukan data kartu RFID).
   const handleHiddenInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       const val = e.currentTarget.value.trim();
       e.currentTarget.value = "";
       if (val) {
-        processPresence(val, "RFID");
+        processPresence(val, "MANUAL");
       }
     }
   };

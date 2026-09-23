@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeopleExcelBuffer } from "@/lib/export-excel";
 import { getCurrentAdmin } from "@/lib/auth";
+import { generateUniqueQrToken } from "@/lib/qr-token";
 
 export async function POST(req: Request) {
   try {
@@ -30,6 +31,20 @@ export async function POST(req: Request) {
 
     const failedRows = [...initialErrors];
     let successCount = 0;
+
+    // Peta Lembaga / Unit untuk kolom "Kode Lembaga" pada file import
+    const institutionList = await prisma.institution.findMany({
+      select: { id: true, code: true, name: true },
+    });
+    const findInstitution = (raw?: string) => {
+      if (!raw) return null;
+      const key = raw.trim().toLowerCase();
+      return (
+        institutionList.find((inst) => inst.code.toLowerCase() === key) ||
+        institutionList.find((inst) => inst.name.toLowerCase() === key) ||
+        null
+      );
+    };
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
@@ -66,7 +81,22 @@ export async function POST(req: Request) {
           }
         }
 
-        const qrToken = `QR-${row.role}-${row.nisNip}`;
+        // Resolusi Lembaga / Unit (opsional, dari kolom "Kode Lembaga")
+        let institutionId: string | null = null;
+        if (row.institutionCode) {
+          const institution = findInstitution(row.institutionCode);
+          if (!institution) {
+            failedRows.push({
+              rowNumber,
+              data: row,
+              reason: `Lembaga / Unit '${row.institutionCode}' tidak ditemukan. Periksa kode atau nama pada menu Yayasan & Lembaga.`,
+            });
+            continue;
+          }
+          institutionId = institution.id;
+        }
+
+        const qrToken = await generateUniqueQrToken(row.role, row.nisNip);
 
         await prisma.person.create({
           data: {
@@ -80,6 +110,7 @@ export async function POST(req: Request) {
             parentPhone: row.parentPhone || null,
             rfidUid: row.rfidUid || null,
             qrCodeToken: qrToken,
+            institutionId,
           },
         });
 

@@ -10,6 +10,7 @@ export interface PersonRowData {
   phone?: string;
   parentPhone?: string;
   rfidUid?: string;
+  institutionCode?: string;
 }
 
 export function generatePeopleTemplateBuffer(): Buffer {
@@ -23,6 +24,7 @@ export function generatePeopleTemplateBuffer(): Buffer {
     "No HP Pribadi",
     "No HP Orang Tua / Wali (Khusus Siswa)",
     "Kode Kartu RFID (Opsional)",
+    "Kode Lembaga (Opsional, dari menu Yayasan & Lembaga)",
   ];
 
   const sampleData = [
@@ -36,6 +38,7 @@ export function generatePeopleTemplateBuffer(): Buffer {
       "082112345678",
       "081234567890",
       "SISWA9999",
+      "SMK",
     ],
     [
       "198501012010011009",
@@ -47,6 +50,7 @@ export function generatePeopleTemplateBuffer(): Buffer {
       "081398765432",
       "",
       "GURU9999",
+      "SMP",
     ],
   ];
 
@@ -63,6 +67,7 @@ export function generatePeopleTemplateBuffer(): Buffer {
     { wch: 20 },
     { wch: 28 },
     { wch: 25 },
+    { wch: 34 },
   ];
 
   const wb = XLSX.utils.book_new();
@@ -111,6 +116,7 @@ export function parsePeopleExcelBuffer(buffer: Buffer): ParseResult {
     const phone = row[6] ? String(row[6]).trim() : undefined;
     const parentPhone = row[7] ? String(row[7]).trim() : undefined;
     const rfidUid = row[8] ? String(row[8]).trim() : undefined;
+    const institutionCode = row[9] ? String(row[9]).trim() : undefined;
 
     // Validasi field wajib
     if (!nisNip) {
@@ -164,6 +170,7 @@ export function parsePeopleExcelBuffer(buffer: Buffer): ParseResult {
       phone,
       parentPhone,
       rfidUid,
+      institutionCode,
     });
   }
 
@@ -182,6 +189,7 @@ export function exportPeopleToExcelBuffer(people: any[]): Buffer {
     "No HP Pribadi",
     "No HP Orang Tua",
     "Kode RFID",
+    "Lembaga / Unit",
     "Token QR",
     "Status Akun",
   ];
@@ -197,6 +205,9 @@ export function exportPeopleToExcelBuffer(people: any[]): Buffer {
     p.phone || "-",
     p.parentPhone || "-",
     p.rfidUid || "-",
+    p.institution?.name
+      ? `${p.institution.name}${p.institution.level ? ` (${p.institution.level})` : ""}`
+      : "-",
     p.qrCodeToken || "-",
     p.isActive ? "Aktif" : "Non-Aktif",
   ]);
@@ -213,6 +224,7 @@ export function exportPeopleToExcelBuffer(people: any[]): Buffer {
     { wch: 18 },
     { wch: 18 },
     { wch: 18 },
+    { wch: 26 },
     { wch: 24 },
     { wch: 14 },
   ];
