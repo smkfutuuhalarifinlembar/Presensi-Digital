@@ -4,9 +4,20 @@ import { createDatabaseDump } from "@/lib/db-backup";
 
 /**
  * Unduh backup database.
- *  - PostgreSQL : file .sql (hasil pg_dump), bisa langsung dipulihkan lewat menu Restore.
+ *  - PostgreSQL : file .sql
+ *        · Bila server punya `pg_dump` → dump lengkap (struktur + data).
+ *        · Bila tidak ada (mis. Vercel/serverless) → mode internal aplikasi
+ *          (DELETE + INSERT, tetap bisa dipulihkan lewat menu Restore).
  *  - SQLite     : file .db
+ *
+ * Tidak ada lagi pesan "pg_dump tidak tersedia" — backup selalu bisa diunduh.
  */
+
+// Proses backup bisa berjalan lebih lama dari default function timeout Vercel
+export const maxDuration = 60;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const admin = await getCurrentAdmin();

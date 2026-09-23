@@ -210,6 +210,11 @@ npm run db:migrate:pg
 
 > 💡 Tombol **Backup** dan **Restore** di panel admin (menu *Backup & Restore*) sudah otomatis
 > menyesuaikan jenis database: menghasilkan/menerima file `.sql` untuk PostgreSQL.
+>
+> **Tidak wajib install `postgresql-client`.** Bila server punya `pg_dump`/`psql` (mis. VPS),
+> aplikasi memakainya untuk dump paling lengkap. Bila tidak ada (mis. Vercel/serverless),
+> aplikasi otomatis memakai **mode dump internal** murni JavaScript sehingga tombol Backup
+> tetap bisa diunduh dan file `.sql`-nya tetap bisa dipulihkan lewat menu Restore.
 
 ---
 

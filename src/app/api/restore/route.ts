@@ -4,10 +4,19 @@ import { getDatabaseKind, restoreDatabaseDump } from "@/lib/db-backup";
 
 /**
  * Pulihkan database dari file backup.
- *  - PostgreSQL : unggah file .sql (hasil tombol Backup / pg_dump)
+ *  - PostgreSQL : unggah file .sql
+ *        · File hasil tombol Backup aplikasi → dipulihkan lewat Prisma
+ *          (tidak butuh `psql`, jadi tetap jalan di Vercel/serverless).
+ *        · File dump asli pg_dump → dipulihkan lewat `psql` bila tersedia.
  *  - SQLite     : unggah file .db / .sqlite
  * Database saat ini otomatis di-backup ke folder `backups/` sebelum ditimpa.
  */
+
+// Restore bisa memakan waktu lebih lama dari default function timeout Vercel
+export const maxDuration = 60;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const admin = await getCurrentAdmin();

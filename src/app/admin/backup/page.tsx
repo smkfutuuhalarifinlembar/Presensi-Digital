@@ -16,15 +16,26 @@ import {
 export default function BackupRestorePage() {
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
   const [restoreResult, setRestoreResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
+  const [backupResult, setBackupResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBackup = async () => {
+    setIsBackingUp(true);
+    setBackupResult(null);
     try {
       const res = await fetch("/api/backup");
+
       if (!res.ok) {
-        const json = await res.json();
-        alert(json.error || "Gagal mengunduh backup");
+        let pesan = `Gagal mengunduh backup (kode ${res.status}).`;
+        try {
+          const json = await res.json();
+          if (json?.error) pesan = json.error;
+        } catch {
+          // respons bukan JSON
+        }
+        setBackupResult({ type: "error", text: pesan });
         return;
       }
 
@@ -34,14 +45,26 @@ export default function BackupRestorePage() {
       a.href = url;
       const disposition = res.headers.get("Content-Disposition") || "";
       const nameMatch = /filename="?([^";]+)"?/.exec(disposition);
-      a.download =
+      const fileName =
         nameMatch?.[1] || `Backup_Presensi_${new Date().toISOString().slice(0, 10)}.sql`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+
+      const sizeKb = (blob.size / 1024).toFixed(1);
+      setBackupResult({
+        type: "success",
+        text: `Backup berhasil diunduh: ${fileName} (${sizeKb} KB). Simpan file ini di tempat aman.`,
+      });
     } catch (err: any) {
-      alert("Gagal mengunduh backup: " + err.message);
+      setBackupResult({
+        type: "error",
+        text: "Gagal mengunduh backup: " + (err?.message || "kesalahan tidak diketahui"),
+      });
+    } finally {
+      setIsBackingUp(false);
     }
   };
 
@@ -118,6 +141,23 @@ export default function BackupRestorePage() {
         </div>
       )}
 
+      {backupResult && (
+        <div
+          className={`p-4 rounded-2xl border flex items-center gap-3 text-sm ${
+            backupResult.type === "success"
+              ? "bg-emerald-950/80 border-emerald-500 text-emerald-200"
+              : "bg-rose-950/80 border-rose-500 text-rose-200"
+          }`}
+        >
+          {backupResult.type === "success" ? (
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+          ) : (
+            <AlertCircle className="w-5 h-5 shrink-0" />
+          )}
+          <span>{backupResult.text}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Backup Section */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
@@ -148,10 +188,11 @@ export default function BackupRestorePage() {
 
           <button
             onClick={handleBackup}
-            className="w-full px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2.5 transition transform active:scale-95"
+            disabled={isBackingUp}
+            className="w-full px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2.5 transition transform active:scale-95 disabled:opacity-60 disabled:cursor-wait"
           >
             <FileDown className="w-5 h-5" />
-            <span>Unduh Backup Sekarang</span>
+            <span>{isBackingUp ? "Menyiapkan file backup..." : "Unduh Backup Sekarang"}</span>
           </button>
         </div>
 
@@ -210,8 +251,18 @@ export default function BackupRestorePage() {
         <ul className="list-disc list-inside space-y-1">
           <li>Lakukan backup secara berkala untuk keamanan data</li>
           <li>File backup berisi seluruh data: orang, presensi, pengaturan, dll</li>
-          <li>Untuh restore, aplikasi perlu di-restart setelah proses selesai</li>
-          <li>Backup otomatis dibuat di folder /backups sebelum setiap restore</li>
+          <li>
+            Backup tidak lagi memerlukan <code>pg_dump</code>/<code>postgresql-client</code>. Bila
+            server tidak punya binari tersebut (mis. Vercel), aplikasi otomatis memakai mode dump
+            internal sehingga file tetap bisa diunduh.
+          </li>
+          <li>
+            File <code>.sql</code> hasil tombol Backup di atas bisa dipulihkan lewat menu Restore di
+            halaman ini, atau manual:{" "}
+            <code>psql &quot;$DATABASE_URL&quot; -f Backup_Presensi_xxx.sql</code>
+          </li>
+          <li>Backup pengaman otomatis dibuat sebelum setiap proses restore</li>
+          <li>Untuk restore, aplikasi cukup dimuat ulang (refresh) setelah proses selesai</li>
         </ul>
       </div>
     </div>
