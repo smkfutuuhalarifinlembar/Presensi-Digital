@@ -580,18 +580,14 @@ export default function IdCardPrintPage() {
                               <span className="font-sans font-semibold">{card.role === "SISWA" ? "NIS" : "NIP"} : </span>
                               <span className="font-bold">{card.nisNip}</span>
                             </div>
-                            {/* Kelas untuk SISWA; jabatan untuk GURU/PEGAWAI/KEPSEK */}
-                            {card.role === "SISWA" ? (
+                            {/* Jabatan ditampilkan untuk GURU/PEGAWAI/KEPSEK.
+                                CATATAN: info Kelas siswa tetap tersimpan di database dan
+                                fungsinya tetap berjalan (jadwal presensi per kelas, filter,
+                                laporan, dll) — hanya sengaja TIDAK ditampilkan di kartu. */}
+                            {card.role !== "SISWA" && card.position && (
                               <div className="text-[8.5px] text-amber-300 font-bold uppercase truncate">
-                                <span>Kelas : </span>
-                                <span>{card.className || "-"}</span>
+                                {card.position}
                               </div>
-                            ) : (
-                              card.position && (
-                                <div className="text-[8.5px] text-amber-300 font-bold uppercase truncate">
-                                  {card.position}
-                                </div>
-                              )
                             )}
                             <div className="text-[8.5px] text-blue-200">
                               <span className="font-semibold">Role : </span>
