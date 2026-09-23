@@ -24,7 +24,7 @@ export default function RecentPresenceTicker({
 }: RecentPresenceTickerProps) {
   return (
     <div
-      className={`w-full bg-slate-900/70 backdrop-blur-md border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col gap-4${fullHeight ? " flex-1 min-h-0 overflow-y-auto" : ""}`}
+      className={`w-full bg-slate-900/70 backdrop-blur-md border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col gap-4${fullHeight ? " flex-1 min-h-0 md:overflow-y-auto" : ""}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-2.5">

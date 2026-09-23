@@ -262,7 +262,7 @@ export default function KioskPage() {
 
   return (
     <div
-      className="h-[100dvh] flex flex-col text-white relative overflow-hidden select-none"
+      className="min-h-[100dvh] md:h-[100dvh] flex flex-col text-white relative overflow-x-hidden md:overflow-hidden select-none"
       style={{
         backgroundColor: school.kioskBackgroundColor || "#0b1329",
         backgroundImage: school.kioskBackgroundUrl
@@ -340,11 +340,11 @@ export default function KioskPage() {
           </div>
         )}
 
-        {/* Dua Kolom: Mode Presensi (kiri) + Presensi Terbaru (kanan) — tampil berdampingan di tablet (md) ke atas */}
-        <div className="flex-1 min-h-0 w-full grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4 overflow-y-auto md:overflow-hidden pb-2 md:pb-0">
+        {/* Dua Kolom: Mode Presensi (kiri) + Presensi Terbaru (kanan) — berdampingan di tablet (md) ke atas; di HP halaman di-scroll penuh */}
+        <div className="flex-1 min-h-0 w-full grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4 md:overflow-hidden pb-2 md:pb-0">
           <div className="md:col-span-3 min-h-0 flex flex-col">
             {/* Card Mode Presensi (RFID Default atau QR Code embedded) */}
-            <div className="w-full flex-1 min-h-[280px] bg-slate-900/80 backdrop-blur-xl border-2 border-slate-800 rounded-3xl p-4 sm:p-5 lg:p-6 shadow-2xl flex flex-col items-center text-center relative group overflow-y-auto">
+            <div className="w-full flex-1 min-h-[280px] bg-slate-900/80 backdrop-blur-xl border-2 border-slate-800 rounded-3xl p-4 sm:p-5 lg:p-6 shadow-2xl flex flex-col items-center text-center relative group md:overflow-y-auto">
           {/* Efek Glow Animasi */}
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition duration-1000 -z-10" />
 
