@@ -10,14 +10,22 @@ interface RecentPresenceTickerProps {
     hadir: number;
     terlambat: number;
   };
+  /** Tampilan panel penuh tinggi (kolom kanan kiosk) dengan scroll internal */
+  fullHeight?: boolean;
+  /** Susun daftar jadi 1 kolom (untuk panel sempit di kolom kanan) */
+  stackedList?: boolean;
 }
 
 export default function RecentPresenceTicker({
   recentAttendances,
   stats,
+  fullHeight = false,
+  stackedList = false,
 }: RecentPresenceTickerProps) {
   return (
-    <div className="w-full bg-slate-900/70 backdrop-blur-md border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col gap-4">
+    <div
+      className={`w-full bg-slate-900/70 backdrop-blur-md border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col gap-4${fullHeight ? " flex-1 min-h-0 overflow-y-auto" : ""}`}
+    >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -53,7 +61,7 @@ export default function RecentPresenceTicker({
           Belum ada presensi yang tercatat hari ini.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div className={`grid gap-3 ${stackedList ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"}`}>
           {recentAttendances.slice(0, 5).map((item) => {
             const isHadir = item.status === "HADIR";
             return (

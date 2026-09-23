@@ -39,7 +39,7 @@ export default function KioskHeader({
   }, []);
 
   return (
-    <header className="w-full bg-slate-900/80 backdrop-blur-md border-b border-slate-800 text-white px-4 sm:px-8 py-4 shadow-xl z-20">
+    <header className="w-full bg-slate-900/80 backdrop-blur-md border-b border-slate-800 text-white px-4 sm:px-8 py-2.5 sm:py-3 shadow-xl z-20 shrink-0">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Identitas Sekolah */}
         <div className="flex items-center gap-4 text-center md:text-left">
@@ -80,7 +80,7 @@ export default function KioskHeader({
 
       {/* Baris Jadwal Kegiatan Hari Ini */}
       {todayActivities.length > 0 && (
-        <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="max-w-7xl mx-auto mt-2.5 pt-2.5 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-slate-200 bg-slate-900/70 px-3 py-1.5 rounded-xl border border-slate-700/50 shadow-lg backdrop-blur-sm">
             <ActivityIcon className="w-4 h-4 text-blue-400" />
             <span className="font-semibold text-slate-200">
