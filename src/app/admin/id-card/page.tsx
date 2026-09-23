@@ -590,7 +590,9 @@ export default function IdCardPrintPage() {
                               </div>
                             )}
                             <div className="text-[8.5px] text-blue-200">
-                              <span className="font-semibold">Role : </span>
+                              {/* Label ditampilkan sebagai "Status"; datanya tetap
+                                  memakai kolom `role` pada database (tidak diubah). */}
+                              <span className="font-semibold">Status : </span>
                               <span className="inline-block px-1.5 py-0.2 rounded text-[7px] font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: roleColor }}>
                                 {card.role}
                               </span>
