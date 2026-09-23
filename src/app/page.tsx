@@ -290,12 +290,12 @@ export default function KioskPage() {
       />
 
       {/* Konten Utama Kiosk */}
-      <main className="flex-1 min-h-0 flex flex-col items-stretch p-3 sm:p-4 lg:p-5 max-w-7xl mx-auto w-full z-10 gap-2 sm:gap-3">
+      <main className="flex-1 min-h-0 flex flex-col items-stretch p-2 sm:p-4 lg:p-5 max-w-7xl mx-auto w-full z-10 gap-2 sm:gap-3">
         {/* Banner Status Sesi Presensi */}
         <div className="w-full text-center">
           {isSessionOpen ? (
             <div
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-lg animate-pulse"
+              className="inline-flex flex-wrap justify-center max-w-full items-center gap-2 px-3 py-1.5 rounded-full border shadow-lg animate-pulse"
               style={{
                 backgroundColor: "#064e3b",
                 borderColor: "#10b981",
@@ -310,7 +310,7 @@ export default function KioskPage() {
             </div>
           ) : (
             <div
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border"
+              className="inline-flex flex-wrap justify-center max-w-full items-center gap-2 px-3 py-1.5 rounded-full border"
               style={{
                 backgroundColor: "#0f172a",
                 borderColor: "#334155",
@@ -340,9 +340,9 @@ export default function KioskPage() {
           </div>
         )}
 
-        {/* Dua Kolom: Mode Presensi (kiri) + Presensi Terbaru (kanan) */}
-        <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4 overflow-y-auto lg:overflow-hidden pb-2 lg:pb-0">
-          <div className="lg:col-span-3 min-h-0 flex flex-col">
+        {/* Dua Kolom: Mode Presensi (kiri) + Presensi Terbaru (kanan) — tampil berdampingan di tablet (md) ke atas */}
+        <div className="flex-1 min-h-0 w-full grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4 overflow-y-auto md:overflow-hidden pb-2 md:pb-0">
+          <div className="md:col-span-3 min-h-0 flex flex-col">
             {/* Card Mode Presensi (RFID Default atau QR Code embedded) */}
             <div className="w-full flex-1 min-h-[280px] bg-slate-900/80 backdrop-blur-xl border-2 border-slate-800 rounded-3xl p-4 sm:p-5 lg:p-6 shadow-2xl flex flex-col items-center text-center relative group overflow-y-auto">
           {/* Efek Glow Animasi */}
@@ -379,7 +379,7 @@ export default function KioskPage() {
 
               {/* Kartu Ilustrasi RFID yang Berdenyut */}
               <div className="relative my-2">
-                <div className="w-44 h-28 sm:w-56 sm:h-36 rounded-2xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 border-2 border-blue-400/50 shadow-2xl flex flex-col justify-between p-4 sm:p-5 text-left transform transition hover:scale-105 duration-300">
+                <div className="w-44 h-28 sm:w-56 sm:h-36 max-w-full rounded-2xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 border-2 border-blue-400/50 shadow-2xl flex flex-col justify-between p-4 sm:p-5 text-left transform transition hover:scale-105 duration-300">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono tracking-widest text-blue-200 font-bold">
                       KARTU IDENTITAS
@@ -399,7 +399,7 @@ export default function KioskPage() {
               </div>
 
               {/* Instruksi Tap Kartu */}
-              <h2 className="text-2xl sm:text-3xl font-black text-white mt-6 tracking-tight bg-slate-900/80 px-5 py-2.5 rounded-2xl border border-slate-700/60 shadow-lg backdrop-blur-sm">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white mt-4 sm:mt-6 tracking-tight bg-slate-900/80 px-4 sm:px-5 py-2.5 rounded-2xl border border-slate-700/60 shadow-lg backdrop-blur-sm max-w-full">
                 Tempelkan Kartu RFID Anda
               </h2>
               <p className="text-slate-200 text-sm sm:text-base max-w-md mt-2 bg-slate-900/80 px-4 py-2.5 rounded-xl border border-slate-700/60 shadow-lg backdrop-blur-sm">
@@ -407,7 +407,7 @@ export default function KioskPage() {
               </p>
 
               {/* Divider */}
-              <div className="w-full flex items-center gap-4 my-8">
+              <div className="w-full flex items-center gap-4 my-4 sm:my-6 md:my-8">
                 <div className="flex-1 h-px bg-slate-800" />
                 <span className="text-xs text-slate-200 font-semibold uppercase tracking-wider bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700/60 shadow-lg backdrop-blur-sm">
                   Atau Gunakan QR Code
@@ -431,7 +431,7 @@ export default function KioskPage() {
           </div>
 
           {/* Presensi Terbaru Hari Ini - kolom kanan */}
-          <div className="lg:col-span-2 min-h-0 flex flex-col">
+          <div className="md:col-span-2 min-h-0 flex flex-col">
             <RecentPresenceTicker
               recentAttendances={kioskData?.recentAttendances || []}
               stats={kioskData?.stats || { total: 0, hadir: 0, terlambat: 0 }}

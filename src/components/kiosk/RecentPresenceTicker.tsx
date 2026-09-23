@@ -42,7 +42,7 @@ export default function RecentPresenceTicker({
         </div>
 
         {/* Counter Summary */}
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 text-slate-200 font-medium">
             Total: <span className="font-bold text-white font-mono">{stats.total}</span>
           </div>
@@ -61,7 +61,7 @@ export default function RecentPresenceTicker({
           Belum ada presensi yang tercatat hari ini.
         </div>
       ) : (
-        <div className={`grid gap-3 ${stackedList ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"}`}>
+        <div className={`grid gap-3 ${stackedList ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"}`}>
           {recentAttendances.slice(0, 5).map((item) => {
             const isHadir = item.status === "HADIR";
             return (

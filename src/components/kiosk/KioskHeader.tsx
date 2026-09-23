@@ -40,38 +40,38 @@ export default function KioskHeader({
 
   return (
     <header className="w-full bg-slate-900/80 backdrop-blur-md border-b border-slate-800 text-white px-4 sm:px-8 py-2.5 sm:py-3 shadow-xl z-20 shrink-0">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-4">
         {/* Identitas Sekolah */}
-        <div className="flex items-center gap-4 text-center md:text-left">
+        <div className="flex items-center gap-3 sm:gap-4 text-center md:text-left min-w-0 max-w-full">
           {school.logoUrl ? (
             <img
               src={school.logoUrl}
               alt="Logo Sekolah"
-              className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-xl bg-white/5 p-1 border border-white/10 shadow-lg"
+              className="w-11 h-11 sm:w-14 md:w-16 sm:h-14 md:h-16 object-contain rounded-xl bg-white/5 p-1 border border-white/10 shadow-lg shrink-0"
             />
           ) : (
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/30">
-              <Shield className="w-8 h-8 text-white" />
+            <div className="w-11 h-11 sm:w-14 md:w-16 sm:h-14 md:h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/30 shrink-0">
+              <Shield className="w-6 sm:w-8 h-6 sm:h-8 text-white" />
             </div>
           )}
-          <div className="bg-slate-900/70 px-3 py-1.5 rounded-xl border border-slate-700/50 shadow-lg backdrop-blur-sm">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+          <div className="bg-slate-900/70 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-700/50 shadow-lg backdrop-blur-sm min-w-0 max-w-full">
+            <h1 className="text-base sm:text-xl md:text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent break-words">
               {school.name || "SMK Negeri 1 Nusantara"}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-200 font-medium mt-0.5">
+            <p className="text-[11px] sm:text-sm text-slate-200 font-medium mt-0.5 break-words">
               {school.kioskHeaderSubtitle || "Sistem Presensi Digital Terpadu"}
             </p>
           </div>
         </div>
 
         {/* Jam & Tanggal Digital Real-Time */}
-        <div className="flex items-center gap-3 sm:gap-6 bg-slate-800/80 px-4 sm:px-6 py-2.5 rounded-2xl border border-slate-700/80 shadow-inner">
+        <div className="flex items-center gap-3 sm:gap-6 bg-slate-800/80 px-3 sm:px-6 py-1.5 sm:py-2.5 rounded-2xl border border-slate-700/80 shadow-inner shrink-0">
           <div className="text-right">
-            <div className="text-2xl sm:text-3xl font-black font-mono tracking-widest text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)] bg-slate-900/70 px-3 py-1 rounded-xl border border-slate-700/50 shadow-lg backdrop-blur-sm">
+            <div className="text-xl sm:text-2xl md:text-3xl font-black font-mono tracking-widest text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)] bg-slate-900/70 px-2.5 sm:px-3 py-1 rounded-xl border border-slate-700/50 shadow-lg backdrop-blur-sm">
               {time || "--:--:--"}
             </div>
-            <div className="text-xs sm:text-sm text-slate-200 font-medium flex items-center justify-end gap-1.5 bg-slate-900/70 px-3 py-1 rounded-lg border border-slate-700/50 shadow-lg backdrop-blur-sm mt-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-300" />
+            <div className="text-[11px] sm:text-sm text-slate-200 font-medium flex items-center justify-end gap-1.5 bg-slate-900/70 px-2.5 sm:px-3 py-1 rounded-lg border border-slate-700/50 shadow-lg backdrop-blur-sm mt-1">
+              <Calendar className="w-3.5 h-3.5 text-slate-300 shrink-0" />
               {dateStr || "Memuat tanggal..."}
             </div>
           </div>

@@ -49,7 +49,11 @@ export default function QrScannerModal({
 
         const config = {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
+          // qrbox responsif: ikut ukuran container (maks 250px, min 150px)
+          qrbox: (viewWidth: number, viewHeight: number) => {
+            const side = Math.max(150, Math.min(250, viewWidth, viewHeight));
+            return { width: side, height: side };
+          },
           aspectRatio: 1.0,
         };
 
@@ -130,7 +134,7 @@ export default function QrScannerModal({
 
       {/* Camera Area - scanner SELALU AKTIF dan tidak terhalang overlay apapun */}
       <div className="relative my-1">
-        <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-2xl overflow-hidden bg-slate-950 border-2 border-blue-500/50 shadow-2xl flex items-center justify-center">
+        <div className="relative w-64 h-64 sm:w-72 sm:h-72 max-w-full rounded-2xl overflow-hidden bg-slate-950 border-2 border-blue-500/50 shadow-2xl flex items-center justify-center">
           {isStarting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-sm gap-2 z-10 bg-slate-900/70">
               <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
