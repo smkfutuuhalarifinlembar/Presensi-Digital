@@ -116,6 +116,8 @@ export default function NotificationLogsPage() {
 
   useEffect(() => {
     loadCleanupSettings();
+    const poll = setInterval(loadCleanupSettings, 60_000);
+    return () => clearInterval(poll);
   }, []);
 
   const resetFilters = () => {
@@ -252,7 +254,7 @@ export default function NotificationLogsPage() {
               <h2 className="font-black text-white">Pengaturan Hapus Riwayat Otomatis</h2>
               <p className={`text-xs mt-1 ${muted}`}>
                 Mode saat ini: {cleanupSetting.autoDeleteEnabled ? `Otomatis setiap ${cleanupSetting.intervalHours} jam` : "Manual"}.
-                Semua status sukses, gagal, dan diproses akan dihapus bersama.
+                Semua status sukses, gagal, dan diproses akan dihapus bersama saat ada aktivitas setelah jadwal jatuh tempo.
               </p>
             </div>
           </div>

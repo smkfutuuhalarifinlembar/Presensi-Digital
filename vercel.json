@@ -25,11 +25,5 @@
       "source": "/ingress/:path*",
       "destination": "/api/ingress/:path*"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/notification-cleanup",
-      "schedule": "0 * * * *"
-    }
   ]
 }
