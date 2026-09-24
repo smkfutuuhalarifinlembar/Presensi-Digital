@@ -436,14 +436,22 @@ export default function KioskPage() {
                 <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                 <span>Beralih ke Mode Scan Kamera (QR Code)</span>
               </button>
-              <Link href="/izin" className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-xs sm:text-sm border border-amber-500/50 shadow-lg flex items-center justify-center gap-2 sm:gap-3"><FileText className="w-4 h-4 sm:w-5 sm:h-5" /><span>Izin Tidak Masuk Sekolah</span></Link>
             </>
           )}
             </div>
           </div>
 
           {/* Presensi Terbaru Hari Ini - kolom kanan */}
-          <div className="md:col-span-2 min-h-0 flex flex-col">
+          <div className="md:col-span-2 min-h-0 flex flex-col gap-3">
+            {/* Tombol Fitur Izin — di atas panel Presensi Terbaru */}
+            <Link
+              href="/izin"
+              className="shrink-0 w-full px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-xs sm:text-sm border border-amber-500/50 shadow-lg flex items-center justify-center gap-2 sm:gap-3 transition transform hover:brightness-110 active:scale-95"
+            >
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Izin Tidak Masuk Sekolah</span>
+            </Link>
+
             <RecentPresenceTicker
               recentAttendances={kioskData?.recentAttendances || []}
               stats={kioskData?.stats || { total: 0, hadir: 0, terlambat: 0 }}
