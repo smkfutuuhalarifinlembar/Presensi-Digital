@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { runNotificationLogCleanup } from "./notification-cleanup";
 import { parseWaTemplate } from "./template-parser";
 import { formatDateIndo } from "./date-utils";
 import {
@@ -214,6 +215,10 @@ export async function processAutomaticAttendanceNotification(
   attendanceId: string,
   options: AttendanceNotificationOptions = {}
 ): Promise<AttendanceNotificationResult> {
+  await runNotificationLogCleanup({ trigger: "AUTO" }).catch((error) => {
+    console.error("Gagal menjalankan pembersihan notifikasi otomatis:", error);
+  });
+
   let notificationLogId: string | null = null;
   let result: SendResult = {
     success: false,

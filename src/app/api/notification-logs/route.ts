@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { getWaGatewaySnapshot } from "@/lib/wa-provider";
+import { runNotificationLogCleanup } from "@/lib/notification-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,10 @@ export async function GET(req: Request) {
   try {
     const auth = await requireRole("ADMIN_OPERATOR");
     if (!auth.ok) return auth.error;
+
+    await runNotificationLogCleanup({ trigger: "AUTO" }).catch((error) => {
+      console.error("Gagal menjalankan pembersihan notifikasi otomatis:", error);
+    });
 
     const { searchParams } = new URL(req.url);
     const status = (searchParams.get("status") || "ALL").toUpperCase();
@@ -128,6 +133,39 @@ export async function GET(req: Request) {
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Gagal memuat riwayat notifikasi." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE() {
+  try {
+    const auth = await requireRole("ADMIN_OPERATOR");
+    if (!auth.ok) return auth.error;
+
+    const result = await runNotificationLogCleanup({ force: true, trigger: "MANUAL" });
+    await prisma.auditLog.create({
+      data: {
+        adminId: auth.admin.adminId,
+        adminName: auth.admin.name,
+        action: "DELETE_NOTIFICATION_LOGS",
+        target: "NOTIFICATION_LOG",
+        details: `Menghapus manual ${result.deletedCount} riwayat notifikasi WhatsApp.`,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message:
+        result.deletedCount > 0
+          ? `${result.deletedCount} riwayat notifikasi berhasil dihapus.`
+          : "Tidak ada riwayat notifikasi untuk dihapus.",
+      setting: result.setting,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || "Gagal menghapus riwayat notifikasi." },
       { status: 500 }
     );
   }

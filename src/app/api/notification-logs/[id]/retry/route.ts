@@ -55,6 +55,15 @@ export async function POST(
       retryOfId: notification.id,
     });
     const person = notification.attendance.person;
+    let replacedFailedLog = false;
+    if (result.success) {
+      try {
+        const deleted = await prisma.notificationLog.deleteMany({ where: { id: notification.id } });
+        replacedFailedLog = deleted.count > 0;
+      } catch (replaceError) {
+        console.error("Gagal mengganti riwayat gagal setelah retry sukses:", replaceError);
+      }
+    }
 
     try {
       await prisma.auditLog.create({
@@ -63,7 +72,7 @@ export async function POST(
           adminName: auth.admin.name,
           action: "RETRY_ATTENDANCE_NOTIFICATION",
           target: `${person.name} (${person.nisNip})`,
-          details: `Kirim ulang notifikasi WA ${result.success ? "berhasil" : "gagal"}: ${result.message}`,
+          details: `Kirim ulang notifikasi WA ${result.success ? "berhasil" : "gagal"}${replacedFailedLog ? "; riwayat gagal lama diganti oleh hasil sukses" : ""}: ${result.message}`,
         },
       });
     } catch (auditError) {
@@ -76,6 +85,7 @@ export async function POST(
         ? "Notifikasi WhatsApp berhasil dikirim ulang."
         : `Pengiriman ulang gagal: ${result.message}`,
       notificationLogId: result.notificationLogId,
+      replacedFailedLog,
     });
   } catch (err: any) {
     return NextResponse.json(

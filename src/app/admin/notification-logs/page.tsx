@@ -12,6 +12,9 @@ import {
   Filter,
   MessageSquare,
   Phone,
+  Trash2,
+  Save,
+  Database,
 } from "lucide-react";
 import { formatDateIndo } from "@/lib/date-utils";
 import { useTheme } from "@/context/ThemeContext";
@@ -66,6 +69,18 @@ export default function NotificationLogsPage() {
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [cleanupSetting, setCleanupSetting] = useState<any>({
+    autoDeleteEnabled: false,
+    intervalHours: 1,
+    lastRunAt: null,
+    lastDeletedCount: 0,
+    lastTrigger: null,
+    nextRunAt: null,
+  });
+  const [cleanupCount, setCleanupCount] = useState(0);
+  const [canManageCleanup, setCanManageCleanup] = useState(false);
+  const [savingCleanup, setSavingCleanup] = useState(false);
+  const [deletingAllLogs, setDeletingAllLogs] = useState(false);
 
   const loadLogs = async () => {
     setLoading(true);
@@ -99,6 +114,10 @@ export default function NotificationLogsPage() {
     return () => clearTimeout(timer);
   }, [page, status, source, from, to, query]);
 
+  useEffect(() => {
+    loadCleanupSettings();
+  }, []);
+
   const resetFilters = () => {
     setStatus("ALL");
     setSource("ALL");
@@ -106,6 +125,65 @@ export default function NotificationLogsPage() {
     setTo("");
     setQuery("");
     setPage(1);
+  };
+
+  const loadCleanupSettings = async () => {
+    try {
+      const res = await fetch("/api/notification-log-settings", { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal memuat pengaturan hapus riwayat.");
+      if (json.setting) setCleanupSetting(json.setting);
+      setCleanupCount(json.currentCount || 0);
+      setCanManageCleanup(Boolean(json.canManage));
+    } catch (error: any) {
+      setActionMessage({ type: "error", text: error?.message || "Gagal memuat pengaturan hapus riwayat." });
+    }
+  };
+
+  const saveCleanupSettings = async () => {
+    setSavingCleanup(true);
+    setActionMessage(null);
+    try {
+      const res = await fetch("/api/notification-log-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          autoDeleteEnabled: cleanupSetting.autoDeleteEnabled,
+          intervalHours: cleanupSetting.intervalHours,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menyimpan pengaturan.");
+      setCleanupSetting(json.setting);
+      setActionMessage({ type: "success", text: "Pengaturan hapus otomatis berhasil disimpan." });
+      await loadCleanupSettings();
+    } catch (error: any) {
+      setActionMessage({ type: "error", text: error?.message || "Gagal menyimpan pengaturan." });
+    } finally {
+      setSavingCleanup(false);
+    }
+  };
+
+  const deleteAllNotificationLogs = async () => {
+    if (!window.confirm(`Hapus semua ${cleanupCount} riwayat notifikasi secara permanen? Tindakan ini tidak dapat dibatalkan.`)) return;
+    setDeletingAllLogs(true);
+    setActionMessage(null);
+    try {
+      const res = await fetch("/api/notification-logs", { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal menghapus riwayat.");
+      setLogs([]);
+      setSummary({ total: 0, sent: 0, failed: 0, pending: 0 });
+      setTotal(0);
+      setTotalPages(1);
+      setPage(1);
+      setActionMessage({ type: "success", text: json.message || "Riwayat notifikasi berhasil dihapus." });
+      await loadCleanupSettings();
+    } catch (error: any) {
+      setActionMessage({ type: "error", text: error?.message || "Gagal menghapus riwayat." });
+    } finally {
+      setDeletingAllLogs(false);
+    }
   };
 
   const retry = async (log: any) => {
@@ -162,6 +240,69 @@ export default function NotificationLogsPage() {
             ? "Credential aktif tersedia. Notifikasi baru memakai provider ini."
             : "Credential provider aktif belum lengkap. Periksa menu WhatsApp Gateway."}
         </div>
+      </div>
+
+      <div className={`rounded-3xl border p-5 shadow-sm ${card}`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-black text-white">Pengaturan Hapus Riwayat Otomatis</h2>
+              <p className={`text-xs mt-1 ${muted}`}>
+                Mode saat ini: {cleanupSetting.autoDeleteEnabled ? `Otomatis setiap ${cleanupSetting.intervalHours} jam` : "Manual"}.
+                Semua status sukses, gagal, dan diproses akan dihapus bersama.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-300">
+              <input
+                type="checkbox"
+                checked={Boolean(cleanupSetting.autoDeleteEnabled)}
+                disabled={!canManageCleanup}
+                onChange={(e) => setCleanupSetting((value: any) => ({ ...value, autoDeleteEnabled: e.target.checked }))}
+                className="w-4 h-4 rounded accent-blue-600"
+              />
+              Hapus otomatis
+            </label>
+            <label className={`text-xs ${muted}`}>
+              Interval jam
+              <input
+                type="number"
+                min={1}
+                max={168}
+                value={cleanupSetting.intervalHours || 1}
+                disabled={!canManageCleanup || !cleanupSetting.autoDeleteEnabled}
+                onChange={(e) => setCleanupSetting((value: any) => ({ ...value, intervalHours: Number(e.target.value) }))}
+                className={`ml-2 w-20 rounded-lg border px-2 py-1.5 ${input}`}
+              />
+            </label>
+            {canManageCleanup && (
+              <button
+                onClick={saveCleanupSettings}
+                disabled={savingCleanup}
+                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Save className="w-3.5 h-3.5" /> Simpan
+              </button>
+            )}
+            <button
+              onClick={deleteAllNotificationLogs}
+              disabled={deletingAllLogs || cleanupCount === 0}
+              className="px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold disabled:opacity-40 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Hapus Manual
+            </button>
+          </div>
+        </div>
+        <div className={`mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] ${muted}`}>
+          <span>Data saat ini: <b className="text-white">{cleanupCount}</b></span>
+          <span>Terakhir dihapus: <b className="text-white">{cleanupSetting.lastRunAt ? `${formatDateIndo(cleanupSetting.lastRunAt)} ${timeWib(cleanupSetting.lastRunAt)} WIB` : "-"}</b></span>
+          <span>Jadwal berikutnya: <b className="text-white">{cleanupSetting.nextRunAt ? `${formatDateIndo(cleanupSetting.nextRunAt)} ${timeWib(cleanupSetting.nextRunAt)} WIB` : "Nonaktif / manual"}</b></span>
+        </div>
+        {!canManageCleanup && <div className="mt-3 text-[11px] text-amber-300">Operator/TU dapat menghapus manual; pengaturan otomatis hanya dapat diubah Super Admin.</div>}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
