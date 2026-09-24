@@ -20,8 +20,8 @@ export async function GET(req: Request) {
     if (date) where.dateString = date;
     if (q) {
       where.OR = [
-        { personName: { contains: q } },
-        { nisNip: { contains: q } },
+        { personName: { contains: q, mode: "insensitive" } },
+        { nisNip: { contains: q, mode: "insensitive" } },
       ];
     }
     const items = await prisma.leaveRequest.findMany({

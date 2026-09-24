@@ -29,9 +29,9 @@ export async function GET(req: Request) {
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { nisNip: { contains: search } },
-        { rfidUid: { contains: search } },
+        { name: { contains: search, mode: "insensitive" } },
+        { nisNip: { contains: search, mode: "insensitive" } },
+        { rfidUid: { contains: search, mode: "insensitive" } },
       ];
     }
 

@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const people = await prisma.person.findMany({
       where: {
         isActive: true,
-        OR: [{ name: { contains: q } }, { nisNip: { contains: q } }],
+        OR: [{ name: { contains: q, mode: "insensitive" } }, { nisNip: { contains: q, mode: "insensitive" } }],
       },
       take: 15,
       select: {

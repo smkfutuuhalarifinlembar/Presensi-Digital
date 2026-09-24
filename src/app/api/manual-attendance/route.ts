@@ -22,8 +22,8 @@ export async function GET(req: Request) {
       where: {
         isActive: true,
         OR: [
-          { name: { contains: q } },
-          { nisNip: { contains: q } },
+          { name: { contains: q, mode: "insensitive" } },
+          { nisNip: { contains: q, mode: "insensitive" } },
         ],
       },
       take: 20,

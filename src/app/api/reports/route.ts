@@ -83,8 +83,8 @@ export async function GET(req: Request) {
       where.person = {
         ...where.person,
         OR: [
-          { name: { contains: search } },
-          { nisNip: { contains: search } },
+          { name: { contains: search, mode: "insensitive" } },
+          { nisNip: { contains: search, mode: "insensitive" } },
         ],
       };
     }
@@ -97,8 +97,8 @@ export async function GET(req: Request) {
       if (className && className !== "ALL") personWhere.className = className;
       if (search) {
         personWhere.OR = [
-          { name: { contains: search } },
-          { nisNip: { contains: search } },
+          { name: { contains: search, mode: "insensitive" } },
+          { nisNip: { contains: search, mode: "insensitive" } },
         ];
       }
 
@@ -205,8 +205,8 @@ export async function GET(req: Request) {
       if (className && className !== "ALL") personWhere.className = className;
       if (search) {
         personWhere.OR = [
-          { name: { contains: search } },
-          { nisNip: { contains: search } },
+          { name: { contains: search, mode: "insensitive" } },
+          { nisNip: { contains: search, mode: "insensitive" } },
         ];
       }
 
