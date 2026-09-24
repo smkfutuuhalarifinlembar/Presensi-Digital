@@ -44,24 +44,65 @@ export async function POST(req: Request) {
     }
 
     // 2. Cari Data Orang BERDASARKAN DATA KARTU (bukan NIS/NIP)
-    //    - RFID  -> hanya dicocokkan dengan kolom `rfidUid` (UID kartu RFID yang didaftarkan)
-    //    - QR    -> hanya dicocokkan dengan kolom `qrCodeToken` (isi QR Code yang tercetak di kartu)
-    //    - MANUAL -> khusus pengetikan manual NIS/NIP di layar kiosk
-    //    Tujuannya: presensi tidak lagi bergantung pada NIS/NIP yang bisa saja
-    //    belum ada / belum sesuai, tetapi murni pada data kartu yang terdaftar.
+    //    - AUTO   → jalur input keyboard kiosk (reader RFID / scanner QR):
+    //               cocokkan `rfidUid` (Kode Kartu RFID) dahulu, lalu
+    //               `qrCodeToken` (isi QR Code tercetak di kartu).
+    //               NIS/NIP TIDAK dipakai di jalur ini.
+    //    - RFID   → hanya `rfidUid` (UID kartu yang didaftarkan)
+    //    - QR     → hanya `qrCodeToken` (isi QR Code ID Card)
+    //    - MANUAL → pengetikan NIS/NIP eksplisit (bukan dari kartu)
+    //    Tujuannya: presensi murni pada data kartu yang terdaftar di
+    //    menu Kelola Orang, bukan NIS/NIP.
     const methodUpper = String(method).toUpperCase();
     const codeVariants = Array.from(
       new Set([cleanCode, cleanCode.toUpperCase(), cleanCode.toLowerCase()])
     );
 
     let person = null;
-    if (methodUpper === "QR") {
+    // Metode yang akan TERCATAT di riwayat. Untuk AUTO diturunkan dari
+    // kolom kartu yang cocok (RFID atau QR) agar laporan tetap akurat.
+    let usedMethod = "RFID";
+
+    if (methodUpper === "AUTO") {
+      // a) Coba cocokkan dengan Kode Kartu RFID (UID)
+      person = await prisma.person.findFirst({
+        where: {
+          rfidUid: { in: codeVariants },
+          isActive: true,
+        },
+      });
+
+      if (person) {
+        usedMethod = "RFID";
+      } else {
+        // b) Fallback: cocokkan dengan isi QR Code (scanner QR keyboard-wedge)
+        person = await prisma.person.findFirst({
+          where: {
+            qrCodeToken: { in: codeVariants },
+            isActive: true,
+          },
+        });
+        if (person) {
+          usedMethod = "QR";
+        }
+      }
+
+      if (!person) {
+        return NextResponse.json(
+          {
+            error: `Kartu [${cleanCode}] belum terdaftar. Daftarkan UID-nya di menu Kelola Orang (Kode Kartu RFID) atau cetak ulang QR Code-nya, lalu coba tap kembali.`,
+          },
+          { status: 404 }
+        );
+      }
+    } else if (methodUpper === "QR") {
       person = await prisma.person.findFirst({
         where: {
           qrCodeToken: { in: codeVariants },
           isActive: true,
         },
       });
+      usedMethod = "QR";
 
       if (!person) {
         return NextResponse.json(
@@ -72,13 +113,14 @@ export async function POST(req: Request) {
         );
       }
     } else if (methodUpper === "MANUAL") {
-      // Input manual (keyboard di layar kiosk) -> memakai NIS/NIP
+      // Input manual eksplisit (NIS/NIP) — bukan jalur kartu kiosk
       person = await prisma.person.findFirst({
         where: {
           nisNip: cleanCode,
           isActive: true,
         },
       });
+      usedMethod = "MANUAL";
 
       if (!person) {
         return NextResponse.json(
@@ -89,13 +131,14 @@ export async function POST(req: Request) {
         );
       }
     } else {
-      // Default: pembacaan kartu RFID
+      // Default: pembacaan kartu RFID (hanya data Kartu RFID)
       person = await prisma.person.findFirst({
         where: {
           rfidUid: { in: codeVariants },
           isActive: true,
         },
       });
+      usedMethod = "RFID";
 
       if (!person) {
         return NextResponse.json(
@@ -226,7 +269,7 @@ export async function POST(req: Request) {
         dateString: todayDateStr,
         timeString: currentTimeStr,
         status: presenceStatus,
-        method: method,
+        method: usedMethod,
         remarks: remarks,
       },
     });
@@ -255,7 +298,7 @@ export async function POST(req: Request) {
       activityName: targetActivity.name,
       time: currentTimeStr,
       date: formatDateIndo(todayDateStr),
-      method: method,
+      method: usedMethod,
     });
   } catch (err: any) {
     return NextResponse.json(

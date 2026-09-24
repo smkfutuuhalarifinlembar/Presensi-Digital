@@ -116,11 +116,18 @@ export default function KioskPage() {
     };
   }, [isQrModalOpen]);
 
-  // 3. Global Key Listener untuk RFID Reader
+  // 3. Global Key Listener untuk input keyboard-wedge
+  //    (reader RFID / scanner QR bertipe keyboard mengetik ke halaman)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Jika modal QR sedang aktif, abaikan keystroke RFID
       if (isQrModalOpen) return;
+
+      // Ketikan yang masuk ke hidden input ditangani oleh
+      // handleHiddenInputKeyDown — jangan diproses dua kali di sini
+      // (dulu terjadi balapan: input mengirim NIS/NIP sementara listener
+      //  ini mengirim UID kartu pada event yang sama).
+      if (e.target === hiddenInputRef.current) return;
 
       const currentTime = Date.now();
 
@@ -135,7 +142,9 @@ export default function KioskPage() {
         const code = rfidBufferRef.current.trim();
         rfidBufferRef.current = "";
         if (code) {
-          processPresence(code, "RFID");
+          // "AUTO" = cocokkan dengan DATA KARTU (rfidUid lalu qrCodeToken),
+          // bukan NIS/NIP
+          processPresence(code, "AUTO");
         }
       } else if (e.key.length === 1) {
         rfidBufferRef.current += e.key;
@@ -147,7 +156,10 @@ export default function KioskPage() {
   }, [isQrModalOpen, kioskData?.activeActivity]);
 
   // 4. Proses Presensi (RFID atau QR)
-  const processPresence = async (identifier: string, method: "RFID" | "QR" | "MANUAL") => {
+  const processPresence = async (
+    identifier: string,
+    method: "RFID" | "QR" | "MANUAL" | "AUTO"
+  ) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -252,14 +264,16 @@ export default function KioskPage() {
     }
   };
 
-  // Handler input manual sementara untuk testing via keyboard di layar
-  // Memakai method "MANUAL" supaya pencarian memakai NIS/NIP (bukan data kartu RFID).
+  // Handler Enter pada hidden input (target fokus kiosk).
+  // Reader RFID & scanner QR bertipe keyboard mengetik ke input ini.
+  // Dikirim dengan method "AUTO" → dicocokkan HANYA dengan data kartu
+  // (Kode Kartu RFID / isi QR Code), BUKAN NIS/NIP.
   const handleHiddenInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       const val = e.currentTarget.value.trim();
       e.currentTarget.value = "";
       if (val) {
-        processPresence(val, "MANUAL");
+        processPresence(val, "AUTO");
       }
     }
   };
