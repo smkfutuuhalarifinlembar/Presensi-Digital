@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
+import { getWaGatewaySnapshot } from "@/lib/wa-provider";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
       ...(source !== "ALL" ? { source } : {}),
     };
 
-    const [total, logs, grouped] = await Promise.all([
+    const [total, logs, grouped, activeGatewayConfig] = await Promise.all([
       prisma.notificationLog.count({ where }),
       prisma.notificationLog.findMany({
         where,
@@ -104,6 +105,7 @@ export async function GET(req: Request) {
         where: scopeWhere,
         _count: { _all: true },
       }),
+      prisma.waGatewayConfig.findUnique({ where: { id: "default" } }),
     ]);
     const summary = { total: 0, sent: 0, failed: 0, pending: 0 };
     for (const row of grouped) {
@@ -118,6 +120,7 @@ export async function GET(req: Request) {
       logs,
       total,
       summary,
+      activeGateway: getWaGatewaySnapshot(activeGatewayConfig),
       page,
       limit,
       totalPages: Math.ceil(total / limit),

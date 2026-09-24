@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatDateIndo } from "@/lib/date-utils";
 import { useTheme } from "@/context/ThemeContext";
+import { getWaGatewaySnapshot, getWaProviderLabel } from "@/lib/wa-provider";
 
 const STATUS_OPTIONS = [
   { value: "ALL", label: "Semua status" },
@@ -52,6 +53,7 @@ export default function NotificationLogsPage() {
   const dark = theme === "dark";
   const [logs, setLogs] = useState<any[]>([]);
   const [summary, setSummary] = useState({ total: 0, sent: 0, failed: 0, pending: 0 });
+  const [activeGateway, setActiveGateway] = useState(getWaGatewaySnapshot(null));
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -82,6 +84,7 @@ export default function NotificationLogsPage() {
       if (!res.ok) throw new Error(json.error || "Gagal memuat riwayat notifikasi.");
       setLogs(json.logs || []);
       setSummary(json.summary || { total: 0, sent: 0, failed: 0, pending: 0 });
+      setActiveGateway(json.activeGateway || getWaGatewaySnapshot(null));
       setTotal(json.total || 0);
       setTotalPages(json.totalPages || 1);
     } catch (error: any) {
@@ -145,6 +148,20 @@ export default function NotificationLogsPage() {
         <button onClick={loadLogs} disabled={loading} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Segarkan
         </button>
+      </div>
+
+      <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${activeGateway.isConfigured && activeGateway.isEnabled ? "border-emerald-500/25 bg-emerald-500/10" : "border-rose-500/25 bg-rose-500/10"}`}>
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-300">Provider WhatsApp aktif</div>
+          <div className="mt-1 font-black text-white text-lg">
+            {activeGateway.label || "Belum ada"} · {activeGateway.isEnabled ? "Aktif" : "Non-Aktif"}
+          </div>
+        </div>
+        <div className={`text-xs font-semibold ${activeGateway.isConfigured ? "text-emerald-300" : "text-rose-300"}`}>
+          {activeGateway.isConfigured
+            ? "Credential aktif tersedia. Notifikasi baru memakai provider ini."
+            : "Credential provider aktif belum lengkap. Periksa menu WhatsApp Gateway."}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -213,6 +230,16 @@ export default function NotificationLogsPage() {
                         <div className="font-bold text-white">{log.attendance.person.name}</div>
                         <div className={`text-xs ${muted}`}>{log.attendance.person.nisNip} · {log.attendance.person.className || log.attendance.person.role}</div>
                         <div className="mt-1 flex items-center gap-1 text-xs text-slate-400"><Phone className="w-3 h-3" />{log.targetPhone || "Nomor tidak tersedia"}</div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-md border border-blue-500/25 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-300">
+                            Dipakai: {getWaProviderLabel(log.provider)}
+                          </span>
+                          {log.provider !== activeGateway.provider && (
+                            <span className="rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                              Berbeda dari provider aktif
+                            </span>
+                          )}
+                        </div>
                         <div className="mt-1 text-[11px] text-slate-500">{log.attendance.activity.name} · {log.attendance.status} · {log.attendance.dateString} {log.attendance.timeString}</div>
                       </td>
                       <td className="px-4 py-4 align-top min-w-80 max-w-xl">
@@ -220,7 +247,7 @@ export default function NotificationLogsPage() {
                           {log.messageContent}
                         </button>
                         {log.errorMessage && <div className="mt-2 rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-rose-300">{log.errorMessage}</div>}
-                        {expandedId === log.id && <div className={`mt-2 text-[11px] ${muted}`}>Provider: {log.provider || "-"} · Respons: {log.deliveryMessage || "-"}<br />Selesai: {log.completedAt ? `${formatDateIndo(log.completedAt)} ${timeWib(log.completedAt)} WIB` : "sedang diproses"}</div>}
+                        {expandedId === log.id && <div className={`mt-2 text-[11px] ${muted}`}>Provider: {getWaProviderLabel(log.provider)} · Respons: {log.deliveryMessage || "-"}<br />Selesai: {log.completedAt ? `${formatDateIndo(log.completedAt)} ${timeWib(log.completedAt)} WIB` : "sedang diproses"}</div>}
                       </td>
                       <td className="px-4 py-4 align-top">
                         <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${sent ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : failed ? "bg-rose-500/15 text-rose-300 border-rose-500/30" : "bg-amber-500/15 text-amber-300 border-amber-500/30"}`}>

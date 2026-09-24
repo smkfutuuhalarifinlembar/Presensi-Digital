@@ -1,6 +1,11 @@
 import { prisma } from "./prisma";
 import { parseWaTemplate } from "./template-parser";
 import { formatDateIndo } from "./date-utils";
+import {
+  evaluateSaungWaResponse,
+  getWaProviderLabel,
+  normalizeWaProvider,
+} from "./wa-provider";
 
 export function formatPhoneNumber(phone: string): string {
   // Bersihkan karakter non-digit
@@ -18,6 +23,8 @@ export interface SendResult {
   success: boolean;
   message: string;
   response?: any;
+  provider?: string | null;
+  httpStatus?: number;
 }
 
 export interface AttendanceNotificationOptions {
@@ -40,19 +47,23 @@ export async function sendDirectWaMessage(
       where: { id: "default" },
     }));
 
+  const provider = config ? normalizeWaProvider(config.provider) : null;
+  const providerLabel = config ? getWaProviderLabel(config.provider, config) : "WhatsApp Gateway";
+
   if (!config || (!configOverride && !config.isEnabled)) {
     return {
       success: false,
-      message: "Gateway WhatsApp tidak aktif atau belum dikonfigurasi.",
+      message: `Gateway WhatsApp tidak aktif atau belum dikonfigurasi${provider ? ` (Provider: ${providerLabel})` : ""}.`,
+      provider,
     };
   }
 
   const formattedTarget = formatPhoneNumber(targetPhone);
 
   try {
-    if (config.provider === "FONNTE") {
+    if (provider === "FONNTE") {
       if (!config.fonnteApiKey) {
-        return { success: false, message: "API Key Fonnte belum diisi." };
+        return { success: false, message: "[Fonnte] API Key Fonnte belum diisi.", provider };
       }
 
       const res = await fetch(config.fonnteEndpointUrl || "https://api.fonnte.com/send", {
@@ -70,25 +81,28 @@ export async function sendDirectWaMessage(
 
       const json = await res.json().catch(() => ({}));
       if (res.ok && (json.status === true || json.status === "true")) {
-        return { success: true, message: "Pesan WhatsApp terkirim via Fonnte", response: json };
+        return { success: true, message: "Pesan WhatsApp terkirim via Fonnte", response: json, provider, httpStatus: res.status };
       }
       return {
         success: false,
-        message: json.reason || json.message || `Fonnte Error: HTTP ${res.status}`,
+        message: json.reason || json.message || `[Fonnte] Error HTTP ${res.status}`,
         response: json,
+        provider,
+        httpStatus: res.status,
       };
     }
 
-    if (config.provider === "SAUNGWA") {
+    if (provider === "SAUNGWA") {
       if (!config.saungwaApiKey) {
-        return { success: false, message: "API Key SaungWA belum diisi." };
+        return { success: false, message: "[SaungWA] API Key SaungWA belum diisi.", provider };
       }
       if (!config.saungwaAuthKey) {
-        return { success: false, message: "Auth Key SaungWA belum diisi." };
+        return { success: false, message: "[SaungWA] Auth Key SaungWA belum diisi.", provider };
       }
 
-      // SaungWA menggunakan form-data dengan field: appkey, authkey, to, message
-      const formData = new URLSearchParams();
+      // Dokumentasi SaungWA: multipart/form-data dengan appkey, authkey,
+      // to, dan message. Jangan set Content-Type manual agar boundary dibuat fetch.
+      const formData = new FormData();
       formData.append("appkey", config.saungwaApiKey);
       formData.append("authkey", config.saungwaAuthKey);
       formData.append("to", formattedTarget);
@@ -99,30 +113,31 @@ export async function sendDirectWaMessage(
 
       const res = await fetch(
         config.saungwaEndpointUrl || "https://app.saungwa.com/api/create-message",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: formData.toString(),
-        }
+        { method: "POST", body: formData }
       );
-
-      const json = await res.json().catch(() => ({}));
-      
-      // SaungWA mengembalikan object { status: true/false, message: "..." } 
-      if (res.ok && json && (json.status === true || json.status === "true")) {
-        return { success: true, message: "Pesan WhatsApp terkirim via SaungWA", response: json };
+      const responseText = await res.text();
+      let json: any = {};
+      try {
+        json = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        json = { message: responseText };
       }
+      const evaluation = evaluateSaungWaResponse(res.status, json);
+      const detail = evaluation.detail ? `; respons: ${evaluation.detail}` : "";
+
       return {
-        success: false,
-        message: json?.message || json?.error || (json?.errors && typeof json.errors === "object" ? JSON.stringify(json.errors) : null) || `SaungWA Error: HTTP ${res.status}`,
+        success: evaluation.success,
+        message: evaluation.success
+          ? `Pesan WhatsApp berhasil diproses oleh SaungWA (HTTP ${res.status}${detail}).`
+          : `[SaungWA] ${json?.message || json?.error || `Error HTTP ${res.status}`}`,
         response: json,
+        provider,
+        httpStatus: res.status,
       };
     }
 
     // Generic Custom Provider
-    if (config.provider === "CUSTOM") {
+    if (provider === "CUSTOM") {
       let headers: Record<string, string> = { "Content-Type": "application/json" };
       if (config.customHeadersJson) {
         try {
@@ -146,6 +161,8 @@ export async function sendDirectWaMessage(
           success: res.ok,
           message: res.ok ? "Pesan terkirim via Custom Gateway" : `Error HTTP ${res.status}`,
           response: text,
+          provider,
+          httpStatus: res.status,
         };
       } else {
         let body: any = {
@@ -177,15 +194,18 @@ export async function sendDirectWaMessage(
           success: res.ok,
           message: res.ok ? "Pesan terkirim via Custom Gateway" : `Error HTTP ${res.status}`,
           response: text,
+          provider,
+          httpStatus: res.status,
         };
       }
     }
 
-    return { success: false, message: `Provider ${config.provider} tidak dikenal.` };
+    return { success: false, message: `Provider ${provider} tidak dikenal.`, provider };
   } catch (err: any) {
     return {
       success: false,
       message: `Gagal mengirim WhatsApp: ${err?.message || "Koneksi terputus"}`,
+      provider,
     };
   }
 }
@@ -265,7 +285,7 @@ export async function processAutomaticAttendanceNotification(
         status: "PENDING",
         source: options.source || attendance.method,
         attempt: (latestAttempt._max.attempt || 0) + 1,
-        provider: config?.provider,
+        provider: config ? normalizeWaProvider(config.provider) : null,
         targetPhone,
         messageContent: messageText,
         retryOfId: options.retryOfId,
@@ -281,15 +301,19 @@ export async function processAutomaticAttendanceNotification(
       },
     });
 
+    const activeProvider = config ? normalizeWaProvider(config.provider) : null;
+    const activeProviderLabel = config ? getWaProviderLabel(config.provider, config) : null;
     if (!config || !config.isEnabled) {
       result = {
         success: false,
-        message: "Gateway WhatsApp tidak aktif atau belum dikonfigurasi.",
+        message: `Gateway WhatsApp tidak aktif atau belum dikonfigurasi${activeProviderLabel ? ` (Provider aktif: ${activeProviderLabel})` : ""}.`,
+        provider: activeProvider,
       };
     } else if (!targetPhone) {
       result = {
         success: false,
-        message: "Nomor WhatsApp tujuan tidak tersedia.",
+        message: `Nomor WhatsApp tujuan tidak tersedia (Provider: ${activeProviderLabel}).`,
+        provider: activeProvider,
       };
     } else {
       result = await sendDirectWaMessage(targetPhone, messageText, config);

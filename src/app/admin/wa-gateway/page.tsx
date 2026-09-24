@@ -2,6 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import {
+  getWaGatewaySnapshot,
+  getWaProviderLabel,
+  isWaProviderConfigured,
+  normalizeWaProvider,
+} from "@/lib/wa-provider";
+import {
   MessageSquare,
   Key,
   Globe,
@@ -40,6 +46,7 @@ export default function WaGatewayPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [activeGateway, setActiveGateway] = useState(getWaGatewaySnapshot(null));
 
   const STATUSES = [
     { id: "HADIR", label: "Hadir Tepat Waktu" },
@@ -62,7 +69,13 @@ export default function WaGatewayPage() {
   const [selectedRole, setSelectedRole] = useState<string>("ALL");
   const [testPhone, setTestPhone] = useState<string>("");
   const [isTesting, setIsTesting] = useState<boolean>(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+    testedProvider?: string;
+    activeProvider?: string | null;
+    usesActiveProvider?: boolean;
+  } | null>(null);
 
   const fetchConfig = async () => {
     setIsLoading(true);
@@ -71,6 +84,7 @@ export default function WaGatewayPage() {
       if (res.ok) {
         const json = await res.json();
         if (json.config) setConfig(json.config);
+        setActiveGateway(json.activeGateway || getWaGatewaySnapshot(json.config));
         
         // Pastikan semua status ada untuk setiap role di state lokal
         const existingTemplates = json.templates || [];
@@ -106,6 +120,7 @@ export default function WaGatewayPage() {
   }, []);
 
   const handleProviderChange = (newProvider: string) => {
+    setTestResult(null);
     setConfig((prev: any) => ({
       ...prev,
       provider: newProvider,
@@ -129,6 +144,9 @@ export default function WaGatewayPage() {
 
       const json = await res.json();
       if (res.ok && json.success) {
+        if (json.config) setConfig(json.config);
+        setActiveGateway(json.activeGateway || getWaGatewaySnapshot(json.config));
+        setTestResult(null);
         setSaveMessage({ type: "success", text: "Konfigurasi WhatsApp dan template pesan berhasil disimpan." });
       } else {
         setSaveMessage({ type: "error", text: json.error || "Gagal menyimpan konfigurasi." });
@@ -163,14 +181,30 @@ export default function WaGatewayPage() {
       setTestResult({
         success: res.ok && (json.success ?? false),
         message: json.message || json.error || (res.ok ? "Koneksi berhasil terhubung!" : "Koneksi gagal."),
+        testedProvider: json.testedProvider || config.provider,
+        activeProvider: json.activeGateway?.provider || activeGateway.provider,
+        usesActiveProvider: Boolean(json.usesActiveProvider),
       });
     } catch (err: any) {
-      setTestResult({ success: false, message: "Gagal menghubungi server gateway." });
+      setTestResult({
+        success: false,
+        message: "Gagal menghubungi server gateway.",
+        testedProvider: config.provider,
+        activeProvider: activeGateway.provider,
+        usesActiveProvider: false,
+      });
     } finally {
       setIsTesting(false);
     }
   };
 
+  const selectedProvider = normalizeWaProvider(config.provider);
+  const selectedProviderLabel = getWaProviderLabel(selectedProvider, config);
+  const selectedIsActive = selectedProvider === activeGateway.provider;
+  const selectedIsConfigured = isWaProviderConfigured(config);
+  const configuredAlternatives = ["FONNTE", "SAUNGWA", "CUSTOM"]
+    .filter((provider) => provider !== activeGateway.provider)
+    .filter((provider) => isWaProviderConfigured({ ...config, provider }));
   const filteredTemplates = templates.filter(t => t.role === selectedRole);
 
   const updateTemplateContent = (status: string, newContent: string) => {
@@ -190,6 +224,30 @@ export default function WaGatewayPage() {
           Kirim notifikasi pesan otomatis ke wali siswa, guru, dan pegawai saat presensi tercatat
         </p>
       </div>
+
+      <div className="rounded-2xl border border-blue-500/25 bg-blue-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-blue-300">Provider aktif tersimpan</div>
+          <div className="mt-1 font-black text-white">
+            {activeGateway.label || "Belum ada"} · {activeGateway.isEnabled ? "Aktif" : "Non-Aktif"}
+          </div>
+          <div className={`text-xs mt-1 ${activeGateway.isConfigured ? "text-emerald-300" : "text-rose-300"}`}>
+            {activeGateway.isConfigured
+              ? "Credential provider aktif sudah lengkap."
+              : "Credential provider aktif belum lengkap; notifikasi otomatis akan gagal."}
+          </div>
+        </div>
+        <div className={`text-xs font-bold px-3 py-2 rounded-xl ${selectedIsActive ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
+          Form saat ini: {selectedProviderLabel} {selectedIsActive ? "(provider aktif)" : "(belum disimpan sebagai aktif)"}{!selectedIsConfigured ? " · credential belum lengkap" : ""}
+        </div>
+      </div>
+
+      {(!selectedIsActive || !activeGateway.isConfigured) && configuredAlternatives.length > 0 && (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+          Credential tersedia untuk {configuredAlternatives.map((provider) => getWaProviderLabel(provider, config)).join(", ")}.
+          Klik Simpan Pengaturan &amp; Template untuk menjadikannya provider aktif.
+        </div>
+      )}
 
       {saveMessage && (
         <div
@@ -263,7 +321,12 @@ export default function WaGatewayPage() {
                       : "bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800"
                   }`}
                 >
-                  <div className="font-bold text-sm">{p.name}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold text-sm">{p.name}</div>
+                    {p.id === activeGateway.provider && (
+                      <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-200">Aktif</span>
+                    )}
+                  </div>
                   <div className="text-xs opacity-75 font-mono">{p.desc}</div>
                 </button>
               );
@@ -451,6 +514,9 @@ export default function WaGatewayPage() {
 
           {/* Test Koneksi Bar */}
           <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="w-full text-[11px] text-slate-400 sm:hidden">
+              Provider yang diuji: {selectedProviderLabel}
+            </div>
             <div className="w-full sm:w-auto flex-1 flex items-center gap-2">
               <input
                 type="text"
@@ -470,13 +536,19 @@ export default function WaGatewayPage() {
             </div>
 
             {testResult && (
-              <span
-                className={`text-xs font-semibold ${
-                  testResult.success ? "text-emerald-400" : "text-rose-400"
-                }`}
-              >
-                {testResult.message}
-              </span>
+              <div className="text-right max-w-xl">
+                <div className={`text-xs font-semibold ${testResult.success ? "text-emerald-400" : "text-rose-400"}`}>
+                  {testResult.message}
+                </div>
+                {testResult.testedProvider && (
+                  <div className={`text-[11px] mt-1 ${testResult.usesActiveProvider ? "text-slate-400" : "text-amber-300"}`}>
+                    Diuji via {getWaProviderLabel(testResult.testedProvider, config)}.
+                    {testResult.usesActiveProvider
+                      ? " Provider ini sama dengan provider aktif tersimpan."
+                      : ` Provider aktif tersimpan: ${getWaProviderLabel(testResult.activeProvider, config)}. Simpan pengaturan bila ingin mengaktifkannya.`}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAdmin, requireRole } from "@/lib/auth";
+import { getWaGatewaySnapshot } from "@/lib/wa-provider";
 
 export async function GET() {
   try {
@@ -25,7 +26,7 @@ export async function GET() {
       orderBy: { status: "asc" },
     });
 
-    return NextResponse.json({ config, templates });
+    return NextResponse.json({ config, activeGateway: getWaGatewaySnapshot(config), templates });
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Gagal memuat konfigurasi WhatsApp." },
@@ -117,6 +118,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({
       success: true,
       config: updatedConfig,
+      activeGateway: getWaGatewaySnapshot(updatedConfig),
       templates: refreshedTemplates,
     });
   } catch (err: any) {
