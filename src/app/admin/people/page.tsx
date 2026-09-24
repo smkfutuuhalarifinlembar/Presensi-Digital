@@ -956,7 +956,7 @@ export default function PeopleManagementPage() {
 
             <div className="p-6 overflow-y-auto space-y-4">
               <p className="text-xs text-slate-400 leading-relaxed">
-                Unggah file <strong>.xlsx</strong> atau <strong>.csv</strong> sesuai template sistem. Validasi per-baris akan menampilkan baris mana saja yang gagal/duplikat tanpa menggagalkan baris lainnya.
+                Unggah file <strong>.xlsx</strong> atau <strong>.csv</strong> sesuai template sistem. Validasi per-baris akan menampilkan baris mana saja yang gagal/duplikat tanpa menggagalkan baris lainnya. Jika NIS/NIP sudah ada di database, data dibandingkan per kolom: <strong className="text-blue-300">ada perubahan → diperbarui</strong>, <strong className="text-slate-300">tidak ada perubahan → dibiarkan (tidak diganti)</strong>.
               </p>
 
               <form onSubmit={handleImportSubmit} className="space-y-4">
@@ -996,14 +996,36 @@ export default function PeopleManagementPage() {
               {/* Hasil Import Laporan Per Baris */}
               {importResult && (
                 <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
-                  <div className="p-3.5 rounded-2xl bg-slate-800 flex items-center justify-between text-xs">
+                  <div className="p-3.5 rounded-2xl bg-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div className="text-emerald-400 font-bold">
-                      ✅ {importResult.successCount} Berhasil Diimport
+                      ✅ {importResult.successCount} Data Baru
+                    </div>
+                    <div className="text-blue-400 font-bold">
+                      🔄 {importResult.updatedCount ?? 0} Diperbarui
+                    </div>
+                    <div className="text-slate-400 font-bold">
+                      ⏸️ {importResult.unchangedCount ?? 0} Tidak Berubah
                     </div>
                     <div className="text-rose-400 font-bold">
                       ❌ {importResult.failCount} Gagal
                     </div>
                   </div>
+
+                  {importResult.updatedRows && importResult.updatedRows.length > 0 && (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      <p className="text-xs font-semibold text-blue-300">
+                        Rincian Baris Diperbarui:
+                      </p>
+                      {importResult.updatedRows.map((u: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="p-2 rounded-xl bg-blue-950/50 border border-blue-900/60 text-[11px] text-blue-200"
+                        >
+                          <strong>Baris {u.rowNumber} ({u.nisNip}):</strong> {u.name} — kolom berubah: {u.changes.join(", ")}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {importResult.failedRows && importResult.failedRows.length > 0 && (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">

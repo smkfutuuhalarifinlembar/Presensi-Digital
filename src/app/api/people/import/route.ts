@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { parsePeopleExcelBuffer } from "@/lib/export-excel";
 import { getCurrentAdmin } from "@/lib/auth";
 import { generateUniqueQrToken } from "@/lib/qr-token";
+import {
+  diffPersonImportRow,
+  type PersonImportFields,
+} from "@/lib/import-diff";
 
 export async function POST(req: Request) {
   try {
@@ -30,7 +34,15 @@ export async function POST(req: Request) {
     const { validRows, errorRows: initialErrors } = parsePeopleExcelBuffer(buffer);
 
     const failedRows = [...initialErrors];
-    let successCount = 0;
+    let successCount = 0; // data BARU (NIS/NIP belum ada)
+    let updatedCount = 0; // data existing yang ada PERUBAHAN → diganti
+    let unchangedCount = 0; // data existing TANPA perubahan → tidak disentuh
+    const updatedRows: {
+      rowNumber: number;
+      nisNip: string;
+      name: string;
+      changes: string[];
+    }[] = [];
 
     // Peta Lembaga / Unit untuk kolom "Kode Lembaga" pada file import
     const institutionList = await prisma.institution.findMany({
@@ -51,20 +63,84 @@ export async function POST(req: Request) {
       const rowNumber = i + 2; // +2 for 1-indexed and header row
 
       try {
+        // Resolusi Lembaga / Unit (opsional, dari kolom "Kode Lembaga")
+        let institutionId: string | null = null;
+        if (row.institutionCode) {
+          const institution = findInstitution(row.institutionCode);
+          if (!institution) {
+            failedRows.push({
+              rowNumber,
+              data: row,
+              reason: `Lembaga / Unit '${row.institutionCode}' tidak ditemukan. Periksa kode atau nama pada menu Yayasan & Lembaga.`,
+            });
+            continue;
+          }
+          institutionId = institution.id;
+        }
+
+        // Data hasil file — file menjadi sumber kebenaran per baris
+        // (sel kosong dianggap kosong/null)
+        const desired: PersonImportFields = {
+          name: row.name,
+          role: row.role,
+          className: row.className || null,
+          position: row.position || null,
+          gender: row.gender || "L",
+          phone: row.phone || null,
+          parentPhone: row.parentPhone || null,
+          rfidUid: row.rfidUid || null,
+          institutionId,
+        };
+
         // Cek apakah NIS/NIP sudah terdaftar di database
         const existingNis = await prisma.person.findUnique({
           where: { nisNip: row.nisNip },
         });
 
         if (existingNis) {
-          failedRows.push({
+          // ===== NIS/NIP sudah ada: bedakan per kolom =====
+          // Ada perubahan  -> ganti data dengan versi file
+          // Tidak ada      -> biarkan (tidak ada tulisan ke database)
+          const changes = diffPersonImportRow(existingNis, desired);
+
+          if (changes.length === 0) {
+            unchangedCount++;
+            continue;
+          }
+
+          // Pastikan UID RFID baru (bila berubah) tidak dipakai orang lain
+          if (desired.rfidUid && desired.rfidUid !== existingNis.rfidUid) {
+            const existingRfid = await prisma.person.findUnique({
+              where: { rfidUid: desired.rfidUid },
+            });
+            if (existingRfid && existingRfid.id !== existingNis.id) {
+              failedRows.push({
+                rowNumber,
+                data: row,
+                reason: `Kode RFID '${desired.rfidUid}' sudah digunakan oleh ${existingRfid.name}`,
+              });
+              continue;
+            }
+          }
+
+          // Ganti field hasil file. qrCodeToken TIDAK disentuh agar
+          // QR Code pada kartu yang sudah tercetak tetap berlaku.
+          await prisma.person.update({
+            where: { id: existingNis.id },
+            data: desired,
+          });
+
+          updatedCount++;
+          updatedRows.push({
             rowNumber,
-            data: row,
-            reason: `NIS/NIP '${row.nisNip}' sudah ada di database (${existingNis.name})`,
+            nisNip: row.nisNip,
+            name: desired.name,
+            changes,
           });
           continue;
         }
 
+        // ===== NIS/NIP baru: cek RFID lalu buat data =====
         // Cek apakah RFID sudah dipakai
         if (row.rfidUid) {
           const existingRfid = await prisma.person.findUnique({
@@ -81,36 +157,13 @@ export async function POST(req: Request) {
           }
         }
 
-        // Resolusi Lembaga / Unit (opsional, dari kolom "Kode Lembaga")
-        let institutionId: string | null = null;
-        if (row.institutionCode) {
-          const institution = findInstitution(row.institutionCode);
-          if (!institution) {
-            failedRows.push({
-              rowNumber,
-              data: row,
-              reason: `Lembaga / Unit '${row.institutionCode}' tidak ditemukan. Periksa kode atau nama pada menu Yayasan & Lembaga.`,
-            });
-            continue;
-          }
-          institutionId = institution.id;
-        }
-
         const qrToken = await generateUniqueQrToken(row.role, row.nisNip);
 
         await prisma.person.create({
           data: {
             nisNip: row.nisNip,
-            name: row.name,
-            role: row.role,
-            className: row.className || null,
-            position: row.position || null,
-            gender: row.gender || "L",
-            phone: row.phone || null,
-            parentPhone: row.parentPhone || null,
-            rfidUid: row.rfidUid || null,
+            ...desired,
             qrCodeToken: qrToken,
-            institutionId,
           },
         });
 
@@ -131,7 +184,7 @@ export async function POST(req: Request) {
         adminName: admin.name,
         action: "IMPORT_PEOPLE",
         target: "DATABASE",
-        details: `Import massal: ${successCount} berhasil, ${failedRows.length} gagal dari total ${validRows.length + initialErrors.length} baris`,
+        details: `Import massal: ${successCount} baru, ${updatedCount} diperbarui, ${unchangedCount} tidak berubah, ${failedRows.length} gagal dari total ${validRows.length + initialErrors.length} baris`,
       },
     });
 
@@ -139,8 +192,11 @@ export async function POST(req: Request) {
       success: true,
       totalRows: validRows.length + initialErrors.length,
       successCount,
+      updatedCount,
+      unchangedCount,
       failCount: failedRows.length,
       failedRows,
+      updatedRows,
     });
   } catch (err: any) {
     return NextResponse.json(
