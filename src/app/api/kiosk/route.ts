@@ -21,9 +21,16 @@ export async function GET() {
     }
 
     // 2. Ambil Semua Jadwal Kegiatan Aktif
+    //    (ikut menyertakan nama lembaga agar tampilan "Jadwal Hari Ini"
+    //     di layar presensi sinkron dengan info di Manajemen Jadwal)
     const rawActivities = await prisma.activity.findMany({
       where: { isActive: true },
       orderBy: { startTime: "asc" },
+      include: {
+        institution: {
+          select: { id: true, name: true, level: true },
+        },
+      },
     });
 
     // Evaluasi status jadwal hari ini

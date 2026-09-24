@@ -28,6 +28,9 @@ module.exports = {
         NODE_ENV: "production",
         PORT: 3000,
         HOSTNAME: "127.0.0.1",
+        // Zona waktu sekolah (WITA) — log & Date lain ikut benar walau VPS UTC.
+        TZ: "Asia/Makassar",
+        SCHOOL_TIMEZONE: "Asia/Makassar",
       },
       out_file: "./logs/pm2-out.log",
       error_file: "./logs/pm2-error.log",

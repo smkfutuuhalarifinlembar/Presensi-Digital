@@ -108,8 +108,8 @@ export default function ActivitiesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  const fetchActivities = async () => {
-    setIsLoading(true);
+  const fetchActivities = async (showLoader: boolean = false) => {
+    if (showLoader) setIsLoading(true);
     try {
       const [res, resPeople] = await Promise.all([
         fetch("/api/activities", { cache: "no-store" }),
@@ -127,12 +127,26 @@ export default function ActivitiesPage() {
     } catch (err) {
       console.error("Gagal memuat jadwal kegiatan:", err);
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchActivities();
+    fetchActivities(true);
+    // Jaga status badge (Akan Datang / Sedang Berlangsung / Selesai) tetap
+    // sinkron dengan layar presensi: refresh berkala + saat window kembali fokus
+    const interval = setInterval(() => fetchActivities(), 30000);
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") fetchActivities();
+    };
+    const handleFocus = () => fetchActivities();
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisible);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisible);
+    };
   }, []);
 
   const openAddModal = () => {
@@ -340,6 +354,23 @@ export default function ActivitiesPage() {
                           }).join(", ")}
                     </span>
                     {act.specificDate && ` (Khusus Tanggal ${act.specificDate})`}
+                  </p>
+
+                  {/* Indikator Sinkronisasi dengan Layar Presensi */}
+                  <p className="text-[11px] mt-1.5">
+                    {!act.isActive ? (
+                      <span className="text-rose-300 font-semibold">
+                        Kegiatan nonaktif — tidak tampil di "Jadwal Hari Ini" layar presensi
+                      </span>
+                    ) : act.isToday ? (
+                      <span className="text-emerald-300 font-semibold">
+                        Berlaku hari ini — tampil di "Jadwal Hari Ini" layar presensi
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">
+                        Tidak berlaku hari ini — tidak tampil di layar presensi
+                      </span>
+                    )}
                   </p>
                 </div>
 

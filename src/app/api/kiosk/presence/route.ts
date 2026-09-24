@@ -4,6 +4,7 @@ import {
   getTodayDateString,
   getCurrentTimeString,
   evaluateActivityState,
+  activityAppliesToPerson,
   calculatePresenceStatus,
   formatDateIndo,
 } from "@/lib/date-utils";
@@ -110,47 +111,43 @@ export async function POST(req: Request) {
     recentTapsCache.set(cleanCode, nowEpoch);
 
     // 3. Tentukan Kegiatan Presensi yang Dituju
+    //    Kegiatan SELALU divalidasi ulang dari database (bukan percaya pada
+    //    activityId dari layar kiosk yang bisa saja sudah basi), menggunakan
+    //    aturan yang sama dengan "Manajemen Jadwal & Jam Presensi":
+    //    - isActive & berlaku hari ini (hari / tanggal khusus)
+    //    - sesi sedang berbuka (ACTIVE)
+    //    - lembaga, target peserta, dan target kelas cocok untuk orang ini
     let targetActivity = null;
 
+    const allActivities = await prisma.activity.findMany({
+      where: { isActive: true },
+      orderBy: { startTime: "asc" },
+    });
+
+    const applicableActivities = allActivities
+      .map((act) => evaluateActivityState(act, now))
+      .filter((a) => a.isToday && activityAppliesToPerson(a, person));
+
+    // Utamakan kegiatan yang diminta kiosk, asalkan masih valid & terbuka
     if (activityId) {
-      targetActivity = await prisma.activity.findUnique({
-        where: { id: activityId },
-      });
-    } else {
-      // Cari kegiatan aktif otomatis, difilter berdasarkan lembaga orang tersebut
-      const allActivities = await prisma.activity.findMany({
-        where: {
-          isActive: true,
-          OR: [
-            { institutionId: null },
-            { institutionId: person.institutionId || "___none___" },
-          ],
-        },
-        orderBy: { startTime: "asc" },
-      });
+      const preferred = applicableActivities.find(
+        (a) => a.id === activityId && a.state === "ACTIVE"
+      );
+      if (preferred) {
+        targetActivity = preferred;
+      }
+    }
 
-      const evaluated = allActivities
-        .map((act) => evaluateActivityState(act, now))
-        .filter((a) => {
-          if (a.targetClasses && a.targetClasses !== "ALL") {
-            if (person.role === "SISWA") {
-              const classes = a.targetClasses.split(",").map((c: string) => c.trim());
-              if (!person.className || !classes.includes(person.className)) return false;
-            }
-          }
-          return true;
-        });
-
-      // Ambil yang isToday dan state === "ACTIVE"
-      const activeActs = evaluated.filter((a) => a.isToday && a.state === "ACTIVE");
+    if (!targetActivity) {
+      // Cari kegiatan aktif otomatis untuk orang ini
+      const activeActs = applicableActivities.filter((a) => a.state === "ACTIVE");
 
       if (activeActs.length > 0) {
         targetActivity = activeActs[0];
       } else {
         // Cek apakah ada kegiatan hari ini yang akan datang atau selesai
-        const todayActs = evaluated.filter((a) => a.isToday);
-        if (todayActs.length > 0) {
-          const upcoming = todayActs.find((a) => a.state === "UPCOMING");
+        if (applicableActivities.length > 0) {
+          const upcoming = applicableActivities.find((a) => a.state === "UPCOMING");
           if (upcoming) {
           return NextResponse.json(
             {

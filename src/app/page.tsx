@@ -82,7 +82,19 @@ export default function KioskPage() {
     fetchKioskData();
     // Refresh jadwal & statistik berkala setiap 30 detik
     const interval = setInterval(fetchKioskData, 30000);
-    return () => clearInterval(interval);
+    // Refresh segera saat layar presensi kembali aktif (window fokus /
+    // tab terlihat kembali) agar perubahan dari Manajemen Jadwal langsung
+    // tercermin di "Jadwal Hari Ini"
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") fetchKioskData();
+    };
+    window.addEventListener("focus", fetchKioskData);
+    document.addEventListener("visibilitychange", handleVisible);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", fetchKioskData);
+      document.removeEventListener("visibilitychange", handleVisible);
+    };
   }, []);
 
   // 2. Memastikan fokus selalu siap untuk RFID Reader (USB HID)

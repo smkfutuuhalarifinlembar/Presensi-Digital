@@ -119,6 +119,16 @@ export default function KioskHeader({
                   <span className="opacity-75 font-mono text-[11px]">
                     ({act.startTime} - {act.endTime})
                   </span>
+                  {act.lateCutoffTime && (
+                    <span className="opacity-75 font-mono text-[11px]">
+                      Batas {act.lateCutoffTime}
+                    </span>
+                  )}
+                  {act.institution?.name && (
+                    <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                      {act.institution.name}
+                    </span>
+                  )}
                   <span className="text-[10px] uppercase tracking-wider font-bold opacity-90 px-1.5 py-0.5 rounded bg-black/20">
                     {act.stateLabel}
                   </span>

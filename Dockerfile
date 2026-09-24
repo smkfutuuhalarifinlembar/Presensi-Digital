@@ -25,6 +25,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Zona waktu sekolah (WITA) — perhitungan jadwal presensi tidak boleh
+# mengikuti zona UTC server.
+ENV TZ=Asia/Makassar
+ENV SCHOOL_TIMEZONE=Asia/Makassar
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
