@@ -28,6 +28,7 @@ import {
   Moon,
   Calendar,
   Building2,
+  BellRing,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -128,6 +129,12 @@ export default function AdminLayout({
       label: "Input Presensi Manual",
       href: "/admin/manual",
       icon: Edit3,
+      roles: ["SUPER_ADMIN", "ADMIN_OPERATOR"],
+    },
+    {
+      label: "Riwayat Notifikasi",
+      href: "/admin/notification-logs",
+      icon: BellRing,
       roles: ["SUPER_ADMIN", "ADMIN_OPERATOR"],
     },
     {

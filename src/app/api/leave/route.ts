@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentAdmin } from "@/lib/auth";
 import { getLeaveSetting, notifyTuOnNewLeave, notifyResultOnReview } from "@/lib/leave-notify";
@@ -6,6 +6,7 @@ import { uploadBufferToDrive, dataUrlToBuffer } from "@/lib/drive-uploader";
 import { getTodayDateString } from "@/lib/date-utils";
 import { writeLeaveAttendance } from "@/app/api/leave/[id]/review/route";
 import { processImageIfNeeded } from "@/lib/image-processor";
+import { processAutomaticAttendanceNotification } from "@/lib/wa-sender";
 
 export async function GET(req: Request) {
   try {
@@ -115,11 +116,28 @@ export async function POST(req: Request) {
           reviewNote: "Disetujui otomatis (Mode Persetujuan Otomatis aktif)",
         },
       });
+      let autoAttendanceId: string | null = null;
       try {
         if ((setting as any).autoCreateAttendance !== false) {
-          await writeLeaveAttendance(approved, "APPROVED", null, "Otomatis (Sistem)", approved.reviewNote);
+          const attendanceRecord = await writeLeaveAttendance(
+            approved,
+            "APPROVED",
+            null,
+            "Otomatis (Sistem)",
+            approved.reviewNote
+          );
+          autoAttendanceId = attendanceRecord?.id || null;
         }
-      } catch (e) { console.error("WA/auto presensi gagal:", e); }
+      } catch (e) {
+        console.error("Gagal membuat presensi otomatis dari izin:", e);
+      }
+      if (autoAttendanceId) {
+        after(() =>
+          processAutomaticAttendanceNotification(autoAttendanceId!, {
+            source: "IZIN_ONLINE",
+          }).catch((e) => console.error("Gagal mengirim WA presensi izin otomatis:", e))
+        );
+      }
       // WA hasil disetujui otomatis: WAJIB ke wali kelas + ortu/siswa (await).
       let waResult: any = null;
       try {

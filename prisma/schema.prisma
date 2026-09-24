@@ -90,8 +90,32 @@ model AttendanceRecord {
   recordedByAdmin      Admin?   @relation(fields: [recordedByAdminId], references: [id])
   activity             Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
   person               Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  notificationLogs     NotificationLog[]
 
   @@unique([personId, activityId, dateString])
+}
+
+model NotificationLog {
+  id              String           @id @default(cuid())
+  attendanceId    String
+  channel         String           @default("WHATSAPP")
+  status          String           @default("PENDING")
+  source          String
+  attempt         Int              @default(1)
+  provider        String?
+  targetPhone     String?
+  messageContent  String
+  deliveryMessage String?
+  errorMessage    String?
+  retryOfId       String?          @unique
+  sentAt          DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  attendance      AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([channel, status, createdAt])
+  @@index([attendanceId, createdAt])
 }
 
 model SchoolSetting {

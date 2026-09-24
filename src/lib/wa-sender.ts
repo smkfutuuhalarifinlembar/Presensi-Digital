@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { parseWaTemplate, MessageVariables } from "./template-parser";
+import { parseWaTemplate } from "./template-parser";
 import { formatDateIndo } from "./date-utils";
 
 export function formatPhoneNumber(phone: string): string {
@@ -18,6 +18,15 @@ export interface SendResult {
   success: boolean;
   message: string;
   response?: any;
+}
+
+export interface AttendanceNotificationOptions {
+  source?: "AUTOMATIC" | "MANUAL" | "RETRY" | "IZIN_ONLINE";
+  retryOfId?: string;
+}
+
+export interface AttendanceNotificationResult extends SendResult {
+  notificationLogId?: string;
 }
 
 export async function sendDirectWaMessage(
@@ -182,98 +191,154 @@ export async function sendDirectWaMessage(
 }
 
 export async function processAutomaticAttendanceNotification(
-  attendanceId: string
-): Promise<SendResult> {
-  const attendance = await prisma.attendanceRecord.findUnique({
-    where: { id: attendanceId },
-    include: {
-      person: true,
-      activity: true,
-    },
-  });
+  attendanceId: string,
+  options: AttendanceNotificationOptions = {}
+): Promise<AttendanceNotificationResult> {
+  let notificationLogId: string | null = null;
+  let result: SendResult = {
+    success: false,
+    message: "Notifikasi belum diproses.",
+  };
 
-  if (!attendance) {
-    return { success: false, message: "Data presensi tidak ditemukan." };
-  }
+  try {
+    const [attendance, school, config] = await Promise.all([
+      prisma.attendanceRecord.findUnique({
+        where: { id: attendanceId },
+        include: { person: true, activity: true },
+      }),
+      prisma.schoolSetting.findUnique({ where: { id: "default" } }),
+      prisma.waGatewayConfig.findUnique({ where: { id: "default" } }),
+    ]);
 
-  const school = await prisma.schoolSetting.findUnique({
-    where: { id: "default" },
-  });
+    if (!attendance) {
+      return { success: false, message: "Data presensi tidak ditemukan." };
+    }
 
-  const config = await prisma.waGatewayConfig.findUnique({
-    where: { id: "default" },
-  });
+    const targetPhone =
+      attendance.person.role === "SISWA"
+        ? attendance.person.parentPhone || attendance.person.phone
+        : attendance.person.phone;
 
-  if (!config || !config.isEnabled) {
-    await prisma.attendanceRecord.update({
-      where: { id: attendanceId },
-      data: { waNotificationStatus: "SKIPPED" },
-    });
-    return { success: true, message: "Gateway WA tidak aktif, notifikasi dilewati." };
-  }
-
-  // Tentukan nomor tujuan: jika siswa prioritaskan nomor orang tua/wali
-  const targetPhone =
-    attendance.person.role === "SISWA"
-      ? attendance.person.parentPhone || attendance.person.phone
-      : attendance.person.phone;
-
-  if (!targetPhone) {
-    await prisma.attendanceRecord.update({
-      where: { id: attendanceId },
-      data: { waNotificationStatus: "NO_PHONE" },
-    });
-    return { success: false, message: "Nomor WhatsApp tidak tersedia." };
-  }
-
-  // Cari template untuk status ini, prioritaskan per role
-  let template = await prisma.waTemplate.findUnique({
-    where: {
-      role_status: {
-        role: attendance.person.role,
-        status: attendance.status,
-      },
-    },
-  });
-
-  // Jika tidak ada per-role, cari yang Umum (ALL)
-  if (!template) {
-    template = await prisma.waTemplate.findUnique({
+    let template = await prisma.waTemplate.findUnique({
       where: {
         role_status: {
-          role: "ALL",
+          role: attendance.person.role,
           status: attendance.status,
         },
       },
     });
+
+    if (!template) {
+      template = await prisma.waTemplate.findUnique({
+        where: {
+          role_status: { role: "ALL", status: attendance.status },
+        },
+      });
+    }
+
+    const defaultTemplate =
+      "Pemberitahuan: {nama} ({kelas}) tercatat {status} pada {nama_kegiatan} tanggal {tanggal} pukul {waktu} di {nama_sekolah}.";
+    const messageText = parseWaTemplate(
+      template?.contentTemplate || defaultTemplate,
+      {
+        nama: attendance.person.name,
+        nis: attendance.person.nisNip,
+        nip: attendance.person.nisNip,
+        kelas: attendance.person.className || "",
+        jabatan: attendance.person.position || attendance.person.role,
+        waktu: attendance.timeString,
+        tanggal: formatDateIndo(attendance.dateString),
+        status: attendance.status,
+        nama_kegiatan: attendance.activity.name,
+        nama_sekolah: school?.name || "Sekolah",
+      }
+    );
+
+    const latestAttempt = await prisma.notificationLog.aggregate({
+      where: { attendanceId },
+      _max: { attempt: true },
+    });
+    const notification = await prisma.notificationLog.create({
+      data: {
+        attendanceId,
+        channel: "WHATSAPP",
+        status: "PENDING",
+        source: options.source || attendance.method,
+        attempt: (latestAttempt._max.attempt || 0) + 1,
+        provider: config?.provider,
+        targetPhone,
+        messageContent: messageText,
+        retryOfId: options.retryOfId,
+      },
+    });
+    notificationLogId = notification.id;
+
+    await prisma.attendanceRecord.update({
+      where: { id: attendanceId },
+      data: {
+        waNotificationSent: false,
+        waNotificationStatus: "PENDING",
+      },
+    });
+
+    if (!config || !config.isEnabled) {
+      result = {
+        success: false,
+        message: "Gateway WhatsApp tidak aktif atau belum dikonfigurasi.",
+      };
+    } else if (!targetPhone) {
+      result = {
+        success: false,
+        message: "Nomor WhatsApp tujuan tidak tersedia.",
+      };
+    } else {
+      result = await sendDirectWaMessage(targetPhone, messageText, config);
+    }
+  } catch (error: any) {
+    result = {
+      success: false,
+      message: `Gagal memproses notifikasi WhatsApp: ${error?.message || "koneksi terputus"}`,
+    };
   }
 
-  // Fallback template jika tidak ditemukan
-  const defaultTemplate =
-    "Pemberitahuan: {nama} ({kelas}) tercatat {status} pada {nama_kegiatan} tanggal {tanggal} pukul {waktu} di {nama_sekolah}.";
+  const completedAt = new Date();
+  try {
+    if (notificationLogId) {
+      await prisma.$transaction([
+        prisma.notificationLog.update({
+          where: { id: notificationLogId },
+          data: {
+            status: result.success ? "SENT" : "FAILED",
+            deliveryMessage: result.message,
+            errorMessage: result.success ? null : result.message,
+            sentAt: result.success ? completedAt : null,
+            completedAt,
+          },
+        }),
+        prisma.attendanceRecord.update({
+          where: { id: attendanceId },
+          data: {
+            waNotificationSent: result.success,
+            waNotificationStatus: result.success ? "SENT" : "FAILED",
+          },
+        }),
+      ]);
+    } else {
+      await prisma.attendanceRecord.update({
+        where: { id: attendanceId },
+        data: {
+          waNotificationSent: false,
+          waNotificationStatus: "FAILED",
+        },
+      });
+    }
+  } catch (error: any) {
+    console.error("Gagal menyimpan status notifikasi WhatsApp:", error);
+    result = {
+      ...result,
+      message: `${result.message} Gagal menyimpan status riwayat: ${error?.message || "koneksi terputus"}`,
+    };
+  }
 
-  const messageText = parseWaTemplate(template?.contentTemplate || defaultTemplate, {
-    nama: attendance.person.name,
-    nis: attendance.person.nisNip,
-    nip: attendance.person.nisNip,
-    kelas: attendance.person.className || "",
-    jabatan: attendance.person.position || attendance.person.role,
-    waktu: attendance.timeString,
-    tanggal: formatDateIndo(attendance.dateString),
-    status: attendance.status,
-    nama_kegiatan: attendance.activity.name,
-    nama_sekolah: school?.name || "Sekolah",
-  });
-
-  const sendResult = await sendDirectWaMessage(targetPhone, messageText, config);
-
-  await prisma.attendanceRecord.update({
-    where: { id: attendanceId },
-    data: {
-      waNotificationSent: sendResult.success,
-      waNotificationStatus: sendResult.success ? "SENT" : "FAILED",
-    },
-  });
-
-  return sendResult;
+  return { ...result, notificationLogId: notificationLogId || undefined };
 }

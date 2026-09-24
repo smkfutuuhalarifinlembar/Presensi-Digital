@@ -155,7 +155,7 @@ Contoh keluaran:
 
 ---
 
-## 🧱 Struktur Tabel (12 Model)
+## 🧱 Struktur Tabel (13 Model)
 
 | Model | Isi |
 |---|---|
@@ -164,6 +164,7 @@ Contoh keluaran:
 | `Person` | Siswa, guru, pegawai, kepala sekolah (NIS/NIP, RFID, QR, foto) |
 | `Activity` | Jadwal kegiatan presensi (jam mulai, batas terlambat, target kelas) |
 | `AttendanceRecord` | Riwayat presensi (unik per orang + kegiatan + tanggal) |
+| `NotificationLog` | Riwayat percobaan notifikasi WA, status, pesan/error, dan waktu |
 | `SchoolSetting` | Profil sekolah, logo, background kiosk, desain ID card |
 | `Holiday` | Hari libur (presensi otomatis nonaktif) |
 | `WaGatewayConfig` | Konfigurasi provider WhatsApp (Fonnte/SaungWA/Custom) |

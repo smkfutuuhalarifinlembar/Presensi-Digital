@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getCurrentAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTimeString } from "@/lib/date-utils";
 import { getLeaveSetting, notifyResultOnReview, reasonLabel } from "@/lib/leave-notify";
+import { processAutomaticAttendanceNotification } from "@/lib/wa-sender";
 
 function mapReasonToAttendance(reasonType: string): string {
   if (reasonType === "SAKIT") return "SAKIT";
@@ -33,7 +34,14 @@ export async function writeLeaveAttendance(
         personId: leave.personId, activityId: act.id, dateString: leave.dateString,
       },
     },
-    update: { status, remarks: ket, method: "IZIN_ONLINE", recordedByAdminId: byAdminId },
+    update: {
+      status,
+      remarks: ket,
+      method: "IZIN_ONLINE",
+      recordedByAdminId: byAdminId,
+      waNotificationSent: false,
+      waNotificationStatus: "PENDING",
+    },
     create: {
       personId: leave.personId, activityId: act.id, dateString: leave.dateString,
       timeString: getCurrentTimeString(), status, method: "IZIN_ONLINE",
@@ -68,12 +76,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
     // Catat ke AttendanceRecord agar OTOMATIS terekap di Rekap & Laporan:
     // disetujui -> SAKIT/IZIN/DINAS_LUAR, ditolak -> ALPA.
+    let attendanceRecord = null as Awaited<ReturnType<typeof writeLeaveAttendance>>;
     try {
       const setting: any = await getLeaveSetting();
       if (setting.autoCreateAttendance) {
-        await writeLeaveAttendance(leave, decision, admin.adminId, admin.name, note);
+        attendanceRecord = await writeLeaveAttendance(leave, decision, admin.adminId, admin.name, note);
       }
-    } catch (e) { console.error("Gagal catat presensi otomatis:", e); }
+    } catch (e) {
+      console.error("Gagal catat presensi otomatis:", e);
+    }
+
+    if (attendanceRecord?.id) {
+      after(() =>
+        processAutomaticAttendanceNotification(attendanceRecord!.id, {
+          source: "IZIN_ONLINE",
+        }).catch((e) => console.error("Gagal mengirim WA presensi izin:", e))
+      );
+    }
 
     await prisma.auditLog.create({
       data: {

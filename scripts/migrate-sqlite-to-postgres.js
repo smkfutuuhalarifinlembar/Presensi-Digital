@@ -102,6 +102,13 @@ const MODELS = [
     },
   },
   {
+    name: "NotificationLog",
+    clientKey: "notificationLog",
+    dates: ["sentAt", "completedAt", "createdAt", "updatedAt"],
+    booleans: [],
+    relations: { attendanceId: ["AttendanceRecord", true] },
+  },
+  {
     name: "SchoolSetting",
     clientKey: "schoolSetting",
     dates: ["updatedAt"],

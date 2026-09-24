@@ -27,7 +27,6 @@ export default function ManualAttendancePage() {
   const [bulkStatus, setBulkStatus] = useState<string>("HADIR");
   const [bulkRemarks, setBulkRemarks] = useState<string>("");
   const [bulkDateString, setBulkDateString] = useState<string>(getTodayDateString());
-  const [bulkSendWa, setBulkSendWa] = useState<boolean>(true);
   const [bulkInstitutionId, setBulkInstitutionId] = useState<string>("");
   const [bulkClassName, setBulkClassName] = useState<string>("");
   const [institutions, setInstitutions] = useState<any[]>([]);
@@ -40,7 +39,6 @@ export default function ManualAttendancePage() {
   const [status, setStatus] = useState<string>("HADIR");
   const [remarks, setRemarks] = useState<string>("");
   const [dateString, setDateString] = useState<string>(getTodayDateString());
-  const [sendWa, setSendWa] = useState<boolean>(true);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -166,7 +164,6 @@ export default function ManualAttendancePage() {
           status: bulkStatus,
           remarks: bulkRemarks.trim() || undefined,
           dateString: bulkDateString,
-          sendWa: bulkSendWa,
           institutionId: bulkInstitutionId,
           className: bulkClassName,
         }),
@@ -223,7 +220,6 @@ export default function ManualAttendancePage() {
           status,
           remarks: remarks.trim() || undefined,
           dateString,
-          sendWa,
         }),
       });
 
@@ -502,31 +498,19 @@ export default function ManualAttendancePage() {
             />
           </div>
 
-          {/* Opsi Kirim WhatsApp Otomatis */}
-          <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <MessageSquare className="w-5 h-5" />
+          {/* Notifikasi WA selalu aktif agar hasil setiap presensi tercatat. */}
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-emerald-300">
+                Notifikasi WhatsApp otomatis aktif
               </div>
-              <div>
-                <div className="text-sm font-bold text-white">
-                  Kirim Notifikasi WhatsApp Otomatis
-                </div>
-                <div className="text-xs text-slate-400">
-                  Mengirimkan pesan WA ke orang tua / nomor terkait sesuai template status
-                </div>
+              <div className="text-xs text-slate-400">
+                Setiap penyimpanan langsung memicu WA. Jika gateway bermasalah, presensi tetap aman dan dapat dikirim ulang dari menu Riwayat Notifikasi.
               </div>
             </div>
-
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={sendWa}
-                onChange={(e) => setSendWa(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-            </label>
           </div>
 
            {/* Tombol Simpan */}
@@ -537,7 +521,7 @@ export default function ManualAttendancePage() {
                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-blue-600/25 flex items-center gap-2.5 transition transform active:scale-95 disabled:opacity-40"
              >
                <Send className="w-4 h-4" />
-               <span>{isLoading ? "Menyimpan & Mengirim WA..." : "Simpan Presensi Manual"}</span>
+               <span>{isLoading ? "Menyimpan Presensi..." : "Simpan Presensi Manual"}</span>
              </button>
            </div>
          </form>
@@ -674,33 +658,20 @@ export default function ManualAttendancePage() {
              />
            </div>
 
-           {/* Opsi Kirim WhatsApp Otomatis */}
-           <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 flex items-center justify-between">
-             <div className="flex items-center gap-3">
-               <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                 <MessageSquare className="w-5 h-5" />
-               </div>
-               <div>
-                 <div className="text-sm font-bold text-white">
-                   Kirim Notifikasi WhatsApp Otomatis
-                 </div>
-                 <div className="text-xs text-slate-400">
-                   Mengirimkan pesan WA ke orang tua / nomor terkait sesuai template status
-                 </div>
-               </div>
-             </div>
-
-             <label className="relative inline-flex items-center cursor-pointer">
-               <input
-                 type="checkbox"
-                 checked={bulkSendWa}
-                 onChange={(e) => setBulkSendWa(e.target.checked)}
-                 className="sr-only peer"
-               />
-               <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-             </label>
-           </div>
-
+            {/* Notifikasi WA selalu aktif dan setiap kegagalan masuk riwayat. */}
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-emerald-300">
+                  Notifikasi WhatsApp otomatis aktif
+                </div>
+                <div className="text-xs text-slate-400">
+                  Semua orang yang tersimpan akan memicu notifikasi. Kegagalan tidak membatalkan presensi dan tersimpan untuk dikirim ulang.
+                </div>
+              </div>
+            </div>
            {/* Tombol Simpan Bulk */}
            <div className="pt-4 border-t border-slate-800 flex justify-end">
              <button
@@ -710,7 +681,7 @@ export default function ManualAttendancePage() {
                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-blue-600/25 flex items-center gap-2.5 transition transform active:scale-95 disabled:opacity-40"
              >
                <Send className="w-4 h-4" />
-               <span>{bulkLoading ? "Menyimpan & Mengirim WA..." : "Simpan Presensi Masal"}</span>
+               <span>{bulkLoading ? "Menyimpan Presensi..." : "Simpan Presensi Masal"}</span>
              </button>
            </div>
          </form>

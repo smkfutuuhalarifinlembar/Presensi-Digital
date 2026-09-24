@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { sendDirectWaMessage } from "@/lib/wa-sender";
 
 export async function POST(req: Request) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireRole("SUPER_ADMIN");
+    if (!auth.ok) return auth.error;
 
     const { targetPhone, config } = await req.json();
 

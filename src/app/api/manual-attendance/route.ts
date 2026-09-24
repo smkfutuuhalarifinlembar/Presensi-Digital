@@ -1,15 +1,14 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { getTodayDateString, getCurrentTimeString, formatDateIndo } from "@/lib/date-utils";
 import { processAutomaticAttendanceNotification } from "@/lib/wa-sender";
 
 export async function GET(req: Request) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireRole("ADMIN_OPERATOR");
+    if (!auth.ok) return auth.error;
+    const admin = auth.admin;
 
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q")?.trim() || "";
@@ -49,10 +48,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireRole("ADMIN_OPERATOR");
+    if (!auth.ok) return auth.error;
+    const admin = auth.admin;
 
     const body = await req.json();
     const {
@@ -61,7 +59,6 @@ export async function POST(req: Request) {
       status = "HADIR",
       remarks,
       dateString,
-      sendWa = true,
     } = body;
 
     if (!personId || !activityId || !status) {
@@ -105,6 +102,8 @@ export async function POST(req: Request) {
           remarks: remarks || `Diubah manual oleh admin ${admin.name}`,
           recordedByAdminId: admin.adminId,
           method: "MANUAL",
+          waNotificationSent: false,
+          waNotificationStatus: "PENDING",
         },
       });
     } else {
@@ -134,16 +133,17 @@ export async function POST(req: Request) {
       },
     });
 
-    // Picu pengiriman WhatsApp jika opsi diaktifkan
-    if (sendWa) {
-      processAutomaticAttendanceNotification(record.id).catch((err) => {
-        console.error("Gagal kirim WA manual:", err);
-      });
-    }
+    // Next.js menunggu proses ini melalui waitUntil, tetapi respons dan
+    // penyimpanan presensi tidak bergantung pada keberhasilan WhatsApp.
+    after(() =>
+      processAutomaticAttendanceNotification(record.id, { source: "MANUAL" }).catch((err) => {
+        console.error("Gagal mengirim notifikasi WA manual:", err);
+      })
+    );
 
     return NextResponse.json({
       success: true,
-      message: `Presensi manual ${person.name} berhasil disimpan (${status}).`,
+      message: `Presensi manual ${person.name} berhasil disimpan (${status}). Notifikasi WhatsApp sedang diproses.`,
       record,
     });
   } catch (err: any) {

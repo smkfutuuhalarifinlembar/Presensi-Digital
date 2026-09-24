@@ -91,6 +91,27 @@ CREATE TABLE "AttendanceRecord" (
 );
 
 -- CreateTable
+CREATE TABLE "NotificationLog" (
+    "id" TEXT NOT NULL,
+    "attendanceId" TEXT NOT NULL,
+    "channel" TEXT NOT NULL DEFAULT 'WHATSAPP',
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "source" TEXT NOT NULL,
+    "attempt" INTEGER NOT NULL DEFAULT 1,
+    "provider" TEXT,
+    "targetPhone" TEXT,
+    "messageContent" TEXT NOT NULL,
+    "deliveryMessage" TEXT,
+    "errorMessage" TEXT,
+    "retryOfId" TEXT,
+    "sentAt" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "NotificationLog_pkey" PRIMARY KEY ("id")
+);
+-- CreateTable
 CREATE TABLE "SchoolSetting" (
     "id" TEXT NOT NULL DEFAULT 'default',
     "name" TEXT NOT NULL DEFAULT 'SMK Negeri 1 Nusantara',
@@ -378,6 +399,14 @@ CREATE UNIQUE INDEX "Person_qrCodeToken_key" ON "Person"("qrCodeToken");
 CREATE UNIQUE INDEX "AttendanceRecord_personId_activityId_dateString_key" ON "AttendanceRecord"("personId", "activityId", "dateString");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "NotificationLog_retryOfId_key" ON "NotificationLog"("retryOfId");
+
+-- CreateIndex
+CREATE INDEX "NotificationLog_channel_status_createdAt_idx" ON "NotificationLog"("channel", "status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "NotificationLog_attendanceId_createdAt_idx" ON "NotificationLog"("attendanceId", "createdAt");
+-- CreateIndex
 CREATE UNIQUE INDEX "Holiday_dateString_key" ON "Holiday"("dateString");
 
 -- CreateIndex
@@ -403,6 +432,9 @@ ALTER TABLE "AttendanceRecord" ADD CONSTRAINT "AttendanceRecord_activityId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "AttendanceRecord" ADD CONSTRAINT "AttendanceRecord_personId_fkey" FOREIGN KEY ("personId") REFERENCES "Person"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NotificationLog" ADD CONSTRAINT "NotificationLog_attendanceId_fkey" FOREIGN KEY ("attendanceId") REFERENCES "AttendanceRecord"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "LeaveRequest" ADD CONSTRAINT "LeaveRequest_personId_fkey" FOREIGN KEY ("personId") REFERENCES "Person"("id") ON DELETE CASCADE ON UPDATE CASCADE;

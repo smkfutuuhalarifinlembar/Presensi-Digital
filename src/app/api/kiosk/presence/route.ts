@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   getTodayDateString,
@@ -274,10 +274,13 @@ export async function POST(req: Request) {
       },
     });
 
-    // 7. Picu Notifikasi WhatsApp secara Asinkron (tidak memblokir respon ke kiosk)
-    processAutomaticAttendanceNotification(record.id).catch((err) => {
-      console.error("Gagal mengirim notifikasi WA:", err);
-    });
+    // 7. Picu setelah respons. after() tetap dijaga waitUntil di Vercel, dan
+    // kegagalan WA tidak pernah menggagalkan presensi yang sudah tersimpan.
+    after(() =>
+      processAutomaticAttendanceNotification(record.id, { source: "AUTOMATIC" }).catch((err) => {
+        console.error("Gagal mengirim notifikasi WA:", err);
+      })
+    );
 
     return NextResponse.json({
       success: true,
@@ -299,6 +302,7 @@ export async function POST(req: Request) {
       time: currentTimeStr,
       date: formatDateIndo(todayDateStr),
       method: usedMethod,
+      notificationQueued: true,
     });
   } catch (err: any) {
     return NextResponse.json(
