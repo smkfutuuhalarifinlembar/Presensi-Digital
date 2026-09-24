@@ -81,9 +81,9 @@ export default function ManualAttendancePage() {
     fetchActivities();
   }, []);
 
-  // Search people autocomplete
+  // Search people autocomplete (live: muncul otomatis saat >= 3 huruf, debounce 300ms)
   useEffect(() => {
-    if (!searchQuery || searchQuery.trim().length < 2) {
+    if (!searchQuery || searchQuery.trim().length < 3) {
       setSearchResults([]);
       return;
     }

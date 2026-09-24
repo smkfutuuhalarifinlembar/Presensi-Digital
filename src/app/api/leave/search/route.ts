@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") || "").trim();
-    if (!q || q.length < 2) return NextResponse.json({ people: [] });
+    if (!q || q.length < 3) return NextResponse.json({ people: [] });
 
     const people = await prisma.person.findMany({
       where: {

@@ -23,7 +23,7 @@ const [parentPrev,setParentPrev]=useState<string|null>(null);const [parentData,s
 const [signature,setSignature]=useState<string|null>(null);const [message,setMessage]=useState("");
 const [sending,setSending]=useState(false);const [result,setResult]=useState<{ok:boolean;text:string}|null>(null);
 useEffect(()=>{fetch("/api/leave/settings",{cache:"no-store"}).then(async(r)=>{if(r.ok)setSetting((await r.json()).setting);});},[]);
-useEffect(()=>{if(q.trim().length<2){setResults([]);return;}const t=setTimeout(async()=>{setSearching(true);try{const r=await fetch(`/api/leave/search?q=${encodeURIComponent(q)}`);if(r.ok)setResults((await r.json()).people||[]);}finally{setSearching(false);}},350);return()=>clearTimeout(t);},[q]);
+useEffect(()=>{if(q.trim().length<3){setResults([]);return;}const t=setTimeout(async()=>{setSearching(true);try{const r=await fetch(`/api/leave/search?q=${encodeURIComponent(q)}`);if(r.ok)setResults((await r.json()).people||[]);}finally{setSearching(false);}},350);return()=>clearTimeout(t);},[q]);
 const pickFile=async(f:File|undefined,kind:"bukti"|"ortu")=>{if(!f)return;const url=await fileToDataUrl(f);if(kind==="bukti"){setProofPrev(url);setProofData(url);}else{setParentPrev(url);setParentData(url);}};
 const submit=async(e:React.FormEvent)=>{e.preventDefault();setResult(null);
 if(!selected){setResult({ok:false,text:"Pilih nama dari daftar hasil pencarian."});return;}

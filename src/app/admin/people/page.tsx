@@ -77,11 +77,11 @@ export default function PeopleManagementPage() {
   const [importResult, setImportResult] = useState<any | null>(null);
 
   // Fetch People
-  const fetchPeople = async () => {
+  const fetchPeople = async (pageOverride?: number) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
-        page: page.toString(),
+        page: (pageOverride ?? page).toString(),
         limit: "10",
         role: roleFilter,
         className: classFilter,
@@ -120,10 +120,23 @@ export default function PeopleManagementPage() {
     fetchPeople();
   }, [page, roleFilter, classFilter]);
 
+  // Live search: hasil muncul otomatis saat mengetik >= 3 huruf (debounce 400ms),
+  // plus saat kolom dikosongkan kembali. Enter tetap berfungsi seperti biasa.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length > 0 && q.length < 3) return;
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchPeople(1);
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchPeople();
+    fetchPeople(1);
   };
 
   // RFID Listener saat modal form tambah/edit terbuka & user klik "Daftarkan RFID"
