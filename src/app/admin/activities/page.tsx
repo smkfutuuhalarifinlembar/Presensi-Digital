@@ -588,12 +588,12 @@ export default function ActivitiesPage() {
                       type="button"
                       onClick={() => setFormData({ ...formData, category: cat.name })}
                       className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition ${
-                        formData.category === cat
+                        formData.category === cat.name
                           ? "bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-600/20"
                           : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500"
                       }`}
                     >
-                      {cat}
+                      {cat.name}
                     </button>
                   ))}
                   <button

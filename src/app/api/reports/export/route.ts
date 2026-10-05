@@ -28,20 +28,21 @@ export async function GET(req: Request) {
       },
     };
 
-    // Handle category filter - get activity IDs for the category
+    // Handle category filter - ambil semua kegiatan dalam kategori (termasuk nonaktif)
+    const categoryRequested = !!category && category !== "ALL";
     let categoryActivityIds: string[] = [];
-    if (category && category !== "ALL") {
-      const activities = await prisma.activity.findMany({
-        where: { category, isActive: true },
+    if (categoryRequested) {
+      const acts = await prisma.activity.findMany({
+        where: { category },
         select: { id: true },
       });
-      categoryActivityIds = activities.map((a) => a.id);
+      categoryActivityIds = acts.map((a) => a.id);
     }
 
-    // Determine activity filter: specific activityId OR category activities
+    // Activity spesifik menang; jika tidak, pakai kategori
     if (activityId && activityId !== "ALL") {
       where.activityId = activityId;
-    } else if (categoryActivityIds.length > 0) {
+    } else if (categoryRequested) {
       where.activityId = { in: categoryActivityIds };
     }
     if (status && status !== "ALL") where.status = status;

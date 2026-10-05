@@ -70,13 +70,12 @@ export async function GET(req: Request) {
     const limit = Math.max(1, Math.min(200, parseInt(searchParams.get("limit") || "50")));
     const view = (searchParams.get("view") || "list").toLowerCase(); // list | matrix | monthly
 
-    // Fetch distinct categories for dropdown
-    const categories = await prisma.activity.findMany({
-      where: { isActive: true },
-      select: { category: true },
-      distinct: ["category"],
+    // Fetch kategori terdaftar (agar kategori tanpa kegiatan tetap tampil)
+    const categoryRows = await prisma.activityCategory.findMany({
+      select: { name: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
-    const categoryOptions = categories.map((c) => c.category).filter(Boolean) as string[];
+    const categoryOptions = categoryRows.map((c) => c.name);
 
     const where: any = {
       dateString: {
@@ -85,20 +84,23 @@ export async function GET(req: Request) {
       },
     };
 
-    // Handle category filter - get activity IDs for the category
+    // Handle category filter - ambil SEMUA kegiatan dalam kategori (termasuk nonaktif,
+    // agar riwayat presensi tetap ikut terhitung)
+    const categoryRequested = !!category && category !== "ALL";
     let categoryActivityIds: string[] = [];
-    if (category && category !== "ALL") {
-      const activities = await prisma.activity.findMany({
-        where: { category, isActive: true },
+    if (categoryRequested) {
+      const acts = await prisma.activity.findMany({
+        where: { category },
         select: { id: true },
       });
-      categoryActivityIds = activities.map((a) => a.id);
+      categoryActivityIds = acts.map((a) => a.id);
     }
 
-    // Determine activity filter: specific activityId OR category activities
+    //-activityId spesifik menang; jika tidak, pakai kategori
     if (activityId && activityId !== "ALL") {
       where.activityId = activityId;
-    } else if (categoryActivityIds.length > 0) {
+    } else if (categoryRequested) {
+      // Kategori tanpa kegiatan -> hasil kosong (bukan semua data)
       where.activityId = { in: categoryActivityIds };
     }
 
