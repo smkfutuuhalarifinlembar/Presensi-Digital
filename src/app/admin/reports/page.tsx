@@ -15,6 +15,10 @@ import {
   FileText,
   Grid3X3,
   List,
+  Edit2,
+  Save,
+  X,
+  ChevronDown,
 } from "lucide-react";
 import { getTodayDateString, formatDateIndo } from "@/lib/date-utils";
 
@@ -476,7 +480,7 @@ export default function ReportsPage() {
             <span>Memuat data laporan...</span>
           </div>
         ) : viewMode === "matrix" ? (
-          <MatrixView matrix={matrix} isMonthly={true} />
+          <MatrixView matrix={matrix} isMonthly={true} startDate={startDate} endDate={endDate} />
         ) : records.length === 0 ? (
           <div className="p-12 text-center text-slate-500 text-sm">
             Tidak ada data presensi pada rentang filter ini.
@@ -562,6 +566,16 @@ const STATUS_LETTER: Record<string, string> = {
   LIBUR: "L",
 };
 
+const STATUS_OPTIONS = [
+  { value: "HADIR", label: "H - Hadir", letter: "H", color: "bg-emerald-500/20 text-emerald-400" },
+  { value: "TERLAMBAT", label: "T - Terlambat", letter: "T", color: "bg-amber-500/20 text-amber-400" },
+  { value: "IZIN", label: "I - Izin", letter: "I", color: "bg-blue-500/20 text-blue-400" },
+  { value: "SAKIT", label: "S - Sakit", letter: "S", color: "bg-purple-500/20 text-purple-400" },
+  { value: "ALPA", label: "A - Alpa", letter: "A", color: "bg-rose-500/20 text-rose-400" },
+  { value: "BOLOS", label: "B - Bolos", letter: "B", color: "bg-fuchsia-500/20 text-fuchsia-400" },
+  { value: "DINAS_LUAR", label: "DL - Dinas Luar", letter: "DL", color: "bg-indigo-500/20 text-indigo-400" },
+];
+
 const STATUS_BG: Record<string, string> = {
   HADIR: "#d1fae5",
   TERLAMBAT: "#fef3c7",
@@ -573,7 +587,7 @@ const STATUS_BG: Record<string, string> = {
   LIBUR: "#fecdd3",
 };
 
-function MatrixView({ matrix, isMonthly = false }: { matrix: any; isMonthly?: boolean }) {
+function MatrixView({ matrix, isMonthly = false, startDate, endDate }: { matrix: any; isMonthly?: boolean; startDate: string; endDate: string }) {
   if (!matrix || !matrix.dates || matrix.dates.length === 0) {
     return (
       <div className="p-12 text-center text-slate-500 text-sm">
@@ -584,10 +598,95 @@ function MatrixView({ matrix, isMonthly = false }: { matrix: any; isMonthly?: bo
 
   const dates: string[] = matrix.dates;
   const rows: any[] = matrix.matrix || [];
+  const [editMode, setEditMode] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ personId: string; date: string; currentValue: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const handleCellClick = (personId: string, date: string, currentValue: string) => {
+    if (!editMode) return;
+    if (currentValue === "LIBUR") return; // Can't edit holidays
+    setEditingCell({ personId, date, currentValue });
+  };
+
+  const handleSaveCell = async (personId: string, date: string, newStatus: string) => {
+    setSaving(true);
+    try {
+      const params = new URLSearchParams({
+        startDate: startDate,
+        endDate: endDate,
+        activityId: "ALL",
+        role: "ALL",
+        className: "ALL",
+        status: "ALL",
+        search: "",
+        view: isMonthly ? "monthly" : "matrix",
+        limit: "200",
+      });
+      
+      // Get activityId from the first row's cells (find first non-LIBUR record to get activity)
+      const res = await fetch(`/api/reports?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        // Find the activityId for this person/date
+        let activityId = "ALL";
+        if (json.matrix) {
+          const personRow = json.matrix.find((r: any) => r.personId === personId);
+          if (personRow && personRow.cells[date] && personRow.cells[date] !== "LIBUR" && personRow.cells[date] !== "ALPA") {
+            // We need to fetch the actual record to get activityId
+            // For now, use ALL and let the API handle it
+            activityId = "ALL";
+          }
+        }
+        
+        const updateRes = await fetch("/api/reports", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ personId, dateString: date, status: newStatus, activityId }),
+        });
+        
+        if (updateRes.ok) {
+          // Refresh the matrix data
+          const refreshRes = await fetch(`/api/reports?${params.toString()}`);
+          if (refreshRes.ok) {
+            const freshData = await refreshRes.json();
+            // Update matrix in parent via callback or we'll need a different approach
+            // For now, just close edit mode and let parent refetch
+            window.location.reload(); // Simple approach - reload page
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error saving cell:", err);
+      alert("Gagal menyimpan perubahan");
+    } finally {
+      setSaving(false);
+      setEditingCell(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCell(null);
+  };
 
   // Untuk print: gunakan landscape agar tabel leluasa
   return (
     <div className="print-landscape">
+      {/* Edit Mode Toggle */}
+      <div className="no-print p-3 bg-slate-800/60 border-b border-slate-800 flex items-center gap-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={editMode}
+            onChange={(e) => setEditMode(e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-slate-600 rounded focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-slate-300">Mode Edit</span>
+        </label>
+        {editMode && (
+          <span className="text-xs text-emerald-400 ml-2">Klik sel untuk mengubah status (LIBUR tidak bisa diubah)</span>
+        )}
+      </div>
+
       {/* Legend (Hanya tampil di layar) */}
       <div className="no-print p-4 bg-slate-800/60 border-b border-slate-800 flex flex-wrap gap-3 text-[11px]">
         <span className="font-bold text-white mr-2">Keterangan:</span>
@@ -675,14 +774,42 @@ function MatrixView({ matrix, isMonthly = false }: { matrix: any; isMonthly?: bo
                   const v = row.cells[d];
                   const letter = STATUS_LETTER[v] || "";
                   const bg = STATUS_BG[v] || "transparent";
+                  const isEditing = editingCell?.personId === row.personId && editingCell?.date === d;
+                  const isHoliday = v === "LIBUR";
+
+                  if (isEditing) {
+                    return (
+                      <td
+                        key={d}
+                        className="px-1 py-1.5 border border-slate-700 print:border-slate-300 text-center"
+                      >
+                        <select
+                          value={editingCell.currentValue}
+                          onChange={(e) => handleSaveCell(row.personId, d, e.target.value)}
+                          onBlur={handleCancelEdit}
+                          className="w-full bg-slate-800 border border-blue-500 text-white rounded text-[10px] px-1 py-0.5 focus:outline-none"
+                          autoFocus
+                        >
+                          {STATUS_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value} className={opt.color}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    );
+                  }
+
                   return (
                     <td
                       key={d}
-                      className="px-1 py-1.5 border border-slate-700 print:border-slate-300 text-center font-bold"
+                      className={`px-1 py-1.5 border border-slate-700 print:border-slate-300 text-center font-bold cursor-pointer transition-colors ${editMode && !isHoliday ? "hover:bg-blue-500/20" : ""}`}
                       style={{
                         backgroundColor: v ? bg : undefined,
                         color: v ? "#0f172a" : undefined,
                       }}
+                      onClick={() => handleCellClick(row.personId, d, v)}
+                      title={isHoliday ? "Libur - tidak bisa diedit" : editMode ? `Klik untuk mengubah (${letter || "-"})` : ""}
                     >
                       {letter || "-"}
                     </td>

@@ -5,6 +5,19 @@ import { getTodayDateString } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
+const STATUS_PRIORITY = ["HADIR", "TERLAMBAT", "SAKIT", "IZIN", "DINAS_LUAR", "BOLOS", "ALPA"];
+
+function getHighestPriorityRecord(records: any[]): any | null {
+  if (!records || records.length === 0) return null;
+  return records.reduce((best, current) => {
+    const bestIdx = STATUS_PRIORITY.indexOf(best.status);
+    const currentIdx = STATUS_PRIORITY.indexOf(current.status);
+    if (currentIdx === -1) return best;
+    if (bestIdx === -1 || currentIdx < bestIdx) return current;
+    return best;
+  });
+}
+
 // Get holidays + Sundays within a date range (untuk matriks bulanan & rentang)
 async function getHolidaysForRange(startDate: string, endDate: string): Promise<string[]> {
   // Get holidays from database
@@ -349,6 +362,103 @@ export async function GET(req: Request) {
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Gagal memuat data laporan presensi." },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH: Update attendance record cell (for matrix edit)
+export async function PATCH(req: Request) {
+  try {
+    const admin = await getCurrentAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { personId, dateString, status, activityId } = body;
+
+    if (!personId || !dateString || !status) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Valid statuses
+    const validStatuses = ["HADIR", "TERLAMBAT", "IZIN", "SAKIT", "ALPA", "BOLOS", "DINAS_LUAR"];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
+    // Find existing attendance records for this person/date
+    const where: any = {
+      personId,
+      dateString,
+    };
+    if (activityId && activityId !== "ALL") {
+      where.activityId = activityId;
+    }
+
+    const existingRecords = await prisma.attendanceRecord.findMany({
+      where,
+      orderBy: [{ dateString: "desc" }, { timeString: "desc" }],
+    });
+
+    let record;
+    if (existingRecords.length > 0) {
+      // Update the highest priority record (or the specific activity if provided)
+      const targetRecord = activityId && activityId !== "ALL"
+        ? existingRecords.find(r => r.activityId === activityId)
+        : getHighestPriorityRecord(existingRecords);
+      
+      if (targetRecord) {
+        record = await prisma.attendanceRecord.update({
+          where: { id: targetRecord.id },
+          data: { 
+            status,
+          },
+        });
+      } else {
+        // Fallback: update the first record
+        record = await prisma.attendanceRecord.update({
+          where: { id: existingRecords[0].id },
+          data: { 
+            status,
+          },
+        });
+      }
+    } else {
+      // Create new attendance record
+      // Need to get a default activity if not provided
+      let targetActivityId = activityId;
+      if (!targetActivityId || targetActivityId === "ALL") {
+        const firstActivity = await prisma.activity.findFirst({
+          where: { isActive: true },
+          orderBy: { createdAt: "asc" },
+        });
+        targetActivityId = firstActivity?.id;
+      }
+      
+      if (!targetActivityId) {
+        return NextResponse.json({ error: "No active activity found" }, { status: 400 });
+      }
+
+      record = await prisma.attendanceRecord.create({
+        data: {
+          personId,
+          activityId: targetActivityId,
+          dateString,
+          timeString: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false }),
+          status,
+          method: "MANUAL",
+          recordedByAdminId: admin.adminId,
+        },
+      });
+    }
+
+    return NextResponse.json({ success: true, record });
+  } catch (err: any) {
+    console.error("Error updating attendance:", err);
+    return NextResponse.json(
+      { error: err?.message || "Gagal memperbarui data presensi." },
       { status: 500 }
     );
   }
