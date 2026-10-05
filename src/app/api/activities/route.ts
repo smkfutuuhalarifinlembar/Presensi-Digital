@@ -57,10 +57,19 @@ export async function POST(req: Request) {
       );
     }
 
+    const categoryName = String(category || "UMUM").trim() || "UMUM";
+
+    // Pastikan kategori terdaftar agar bisa dipilih di menu Kelola Kategori
+    await prisma.activityCategory.upsert({
+      where: { name: categoryName },
+      update: {},
+      create: { name: categoryName },
+    });
+
     const newActivity = await prisma.activity.create({
       data: {
         name: name.trim(),
-        category: category?.trim() || "UMUM",
+        category: categoryName,
         daysOfWeek: daysOfWeek || "ALL",
         specificDate: specificDate ? specificDate.trim() : null,
         startTime: startTime.trim(),

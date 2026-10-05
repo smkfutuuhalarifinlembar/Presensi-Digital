@@ -33,11 +33,20 @@ export async function PUT(
       isActive,
     } = body;
 
+    const categoryName = category !== undefined ? String(category || "UMUM").trim() || "UMUM" : null;
+    if (categoryName) {
+      await prisma.activityCategory.upsert({
+        where: { name: categoryName },
+        update: {},
+        create: { name: categoryName },
+      });
+    }
+
     const updatedActivity = await prisma.activity.update({
       where: { id },
       data: {
         ...(name ? { name: name.trim() } : {}),
-        ...(category !== undefined ? { category: category?.trim() || "UMUM" } : {}),
+        ...(categoryName ? { category: categoryName } : {}),
         ...(daysOfWeek !== undefined ? { daysOfWeek } : {}),
         specificDate: specificDate !== undefined ? (specificDate ? specificDate.trim() : null) : undefined,
         ...(startTime ? { startTime: startTime.trim() } : {}),

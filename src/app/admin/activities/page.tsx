@@ -22,7 +22,7 @@ export default function ActivitiesPage() {
   const [activities, setActivities] = useState<any[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Modals
@@ -33,7 +33,7 @@ export default function ActivitiesPage() {
 
   // Form kategori
   const [categoryFormData, setCategoryFormData] = useState({ name: "" });
-  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [isSavingCategory, setIsSavingCategory] = useState<boolean>(false);
 
@@ -122,19 +122,19 @@ export default function ActivitiesPage() {
   const fetchActivities = async (showLoader: boolean = false) => {
     if (showLoader) setIsLoading(true);
     try {
-      const [res, resPeople] = await Promise.all([
+      const [res, resPeople, resCats] = await Promise.all([
         fetch("/api/activities", { cache: "no-store" }),
         fetch("/api/people?limit=1"),
+        fetch("/api/activity-categories", { cache: "no-store" }),
       ]);
       if (res.ok) {
         const json = await res.json();
-        const list = json.activities || [];
-        setActivities(list);
+        setActivities(json.activities || []);
         setInstitutions(json.institutions || []);
-        const cats = Array.from(
-          new Set(list.map((a: any) => a.category || "UMUM").filter(Boolean))
-        ) as string[];
-        setCategories(cats.length > 0 ? cats.sort() : ["UMUM"]);
+      }
+      if (resCats.ok) {
+        const jc = await resCats.json();
+        setCategories(jc.categories || []);
       }
       if (resPeople.ok) {
         const jp = await resPeople.json();
@@ -169,7 +169,7 @@ export default function ActivitiesPage() {
     setSelectedActivity(null);
     setFormData({
       name: "",
-      category: categories[0] || "UMUM",
+      category: categories[0]?.name || "UMUM",
       daysOfWeek: "1,2,3,4,5",
       specificDate: "",
       startTime: "06:30",
@@ -251,38 +251,31 @@ export default function ActivitiesPage() {
     }
   };
 
-  // Pindahkan semua kegiatan dari satu kategori ke kategori lain
-  const moveActivitiesToCategory = async (from: string | null, to: string) => {
-    const targets = from === null ? [] : activities.filter((a) => a.category === from);
-    for (const act of targets) {
-      await fetch(`/api/activities/${act.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category: to }),
-      });
-    }
-  };
-
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = categoryFormData.name.trim();
     if (!name) return;
 
-    if (!editingCategory && categories.some((c) => c.toLowerCase() === name.toLowerCase())) {
-      setCategoryError("Kategori dengan nama tersebut sudah ada.");
-      return;
-    }
-
     setIsSavingCategory(true);
     setCategoryError(null);
     try {
-      await moveActivitiesToCategory(editingCategory, name);
-      if (editingCategory && editingCategory !== name) {
-        setCategories((prev) => prev.filter((c) => c !== editingCategory));
+      const url = editingCategory
+        ? `/api/activity-categories/${editingCategory.id}`
+        : "/api/activity-categories";
+      const method = editingCategory ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setCategoryError(json.error || "Gagal menyimpan kategori.");
+        return;
       }
-      setCategories((prev) =>
-        (prev.includes(name) ? prev : [...prev, name]).sort()
-      );
+
       setCategoryFormData({ name: "" });
       setEditingCategory(null);
       await fetchActivities();
@@ -293,29 +286,31 @@ export default function ActivitiesPage() {
     }
   };
 
-  const handleDeleteCategory = async (cat: string) => {
-    const affected = activities.filter((a) => a.category === cat).length;
+  const handleDeleteCategory = async (cat: any) => {
+    const affected = activities.filter((a) => (a.category || "UMUM") === cat.name).length;
     const msg =
       affected > 0
-        ? `Hapus kategori "${cat}"? ${affected} kegiatan akan dipindahkan ke kategori "UMUM".`
-        : `Hapus kategori "${cat}"?`;
+        ? `Hapus kategori "${cat.name}"? ${affected} kegiatan akan dipindahkan ke kategori "UMUM".`
+        : `Hapus kategori "${cat.name}"?`;
     if (!window.confirm(msg)) return;
 
     setCategoryError(null);
     try {
-      await moveActivitiesToCategory(cat, "UMUM");
-      setCategories((prev) =>
-        prev.filter((c) => c !== cat).concat(prev.includes("UMUM") ? [] : ["UMUM"]).sort()
-      );
+      const res = await fetch(`/api/activity-categories/${cat.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCategoryError(json.error || "Gagal menghapus kategori.");
+        return;
+      }
       await fetchActivities();
     } catch {
       setCategoryError("Gagal menghapus kategori.");
     }
   };
 
-  const openEditCategory = (cat: string) => {
+  const openEditCategory = (cat: any) => {
     setEditingCategory(cat);
-    setCategoryFormData({ name: cat });
+    setCategoryFormData({ name: cat.name });
     setCategoryError(null);
   };
 
@@ -447,11 +442,9 @@ export default function ActivitiesPage() {
                       <Tag className="w-2.5 h-2.5" />
                       {act.category || "UMUM"}
                     </span>
-                    {isActive && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                        {activities.filter((x) => x.category === (act.category || "UMUM")).length} kegiatan
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-700/60 text-slate-300 border border-slate-600/50">
+                      {activities.filter((x) => (x.category || "UMUM") === (act.category || "UMUM")).length} kegiatan
+                    </span>
                   </div>
 
                   <p className="text-xs text-slate-400 mt-1">
@@ -589,11 +582,11 @@ export default function ActivitiesPage() {
                   Kategori Kegiatan *
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {categories.map((cat) => (
+                  {categories.map((cat: any) => (
                     <button
-                      key={cat}
+                      key={cat.id || cat.name}
                       type="button"
-                      onClick={() => setFormData({ ...formData, category: cat })}
+                      onClick={() => setFormData({ ...formData, category: cat.name })}
                       className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition ${
                         formData.category === cat
                           ? "bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-600/20"
@@ -930,16 +923,21 @@ export default function ActivitiesPage() {
                   Daftar Kategori ({categories.length})
                 </h4>
                 <ul className="space-y-2 max-h-64 overflow-y-auto">
-                  {categories.map((cat) => {
-                    const count = activities.filter((a) => (a.category || "UMUM") === cat).length;
+                  {categories.map((cat: any) => {
+                    const count = activities.filter(
+                      (a) => (a.category || "UMUM") === cat.name
+                    ).length;
+                    const isDefault = cat.name === "UMUM";
                     return (
                       <li
-                        key={cat}
+                        key={cat.id || cat.name}
                         className="flex items-center justify-between gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl"
                       >
                         <div className="min-w-0">
-                          <span className="block text-sm font-bold text-white truncate">{cat}</span>
-                          <span className="block text-[11px] text-slate-400">{count} kegiatan</span>
+                          <span className="block text-sm font-bold text-white truncate">{cat.name}</span>
+                          <span className="block text-[11px] text-slate-400">
+                            {count} kegiatan{isDefault ? " (kategori bawaan)" : ""}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
@@ -951,9 +949,9 @@ export default function ActivitiesPage() {
                           </button>
                           <button
                             onClick={() => handleDeleteCategory(cat)}
-                            disabled={isSavingCategory}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-700 transition disabled:opacity-50"
-                            title="Hapus Kategori"
+                            disabled={isDefault}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-700 transition disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                            title={isDefault ? "Kategori bawaan tidak dapat dihapus" : "Hapus Kategori"}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
