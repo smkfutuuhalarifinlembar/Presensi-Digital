@@ -12,6 +12,8 @@ import {
   X,
   Activity as ActivityIcon,
   ShieldAlert,
+  FolderOpen,
+  Tag,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -20,16 +22,25 @@ export default function ActivitiesPage() {
   const [activities, setActivities] = useState<any[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Modals
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
+
+  // Form kategori
+  const [categoryFormData, setCategoryFormData] = useState({ name: "" });
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [isSavingCategory, setIsSavingCategory] = useState<boolean>(false);
 
   // Form
   const [formData, setFormData] = useState({
     name: "",
+    category: "UMUM",
     daysOfWeek: "1,2,3,4,5",
     specificDate: "",
     startTime: "06:30",
@@ -117,8 +128,13 @@ export default function ActivitiesPage() {
       ]);
       if (res.ok) {
         const json = await res.json();
-        setActivities(json.activities || []);
+        const list = json.activities || [];
+        setActivities(list);
         setInstitutions(json.institutions || []);
+        const cats = Array.from(
+          new Set(list.map((a: any) => a.category || "UMUM").filter(Boolean))
+        ) as string[];
+        setCategories(cats.length > 0 ? cats.sort() : ["UMUM"]);
       }
       if (resPeople.ok) {
         const jp = await resPeople.json();
@@ -153,6 +169,7 @@ export default function ActivitiesPage() {
     setSelectedActivity(null);
     setFormData({
       name: "",
+      category: categories[0] || "UMUM",
       daysOfWeek: "1,2,3,4,5",
       specificDate: "",
       startTime: "06:30",
@@ -172,6 +189,7 @@ export default function ActivitiesPage() {
     setSelectedActivity(act);
     setFormData({
       name: act.name,
+      category: act.category || "UMUM",
       daysOfWeek: act.daysOfWeek || "ALL",
       specificDate: act.specificDate || "",
       startTime: act.startTime,
@@ -233,6 +251,81 @@ export default function ActivitiesPage() {
     }
   };
 
+  // Pindahkan semua kegiatan dari satu kategori ke kategori lain
+  const moveActivitiesToCategory = async (from: string | null, to: string) => {
+    const targets = from === null ? [] : activities.filter((a) => a.category === from);
+    for (const act of targets) {
+      await fetch(`/api/activities/${act.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: to }),
+      });
+    }
+  };
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = categoryFormData.name.trim();
+    if (!name) return;
+
+    if (!editingCategory && categories.some((c) => c.toLowerCase() === name.toLowerCase())) {
+      setCategoryError("Kategori dengan nama tersebut sudah ada.");
+      return;
+    }
+
+    setIsSavingCategory(true);
+    setCategoryError(null);
+    try {
+      await moveActivitiesToCategory(editingCategory, name);
+      if (editingCategory && editingCategory !== name) {
+        setCategories((prev) => prev.filter((c) => c !== editingCategory));
+      }
+      setCategories((prev) =>
+        (prev.includes(name) ? prev : [...prev, name]).sort()
+      );
+      setCategoryFormData({ name: "" });
+      setEditingCategory(null);
+      await fetchActivities();
+    } catch {
+      setCategoryError("Gagal menyimpan kategori.");
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (cat: string) => {
+    const affected = activities.filter((a) => a.category === cat).length;
+    const msg =
+      affected > 0
+        ? `Hapus kategori "${cat}"? ${affected} kegiatan akan dipindahkan ke kategori "UMUM".`
+        : `Hapus kategori "${cat}"?`;
+    if (!window.confirm(msg)) return;
+
+    setCategoryError(null);
+    try {
+      await moveActivitiesToCategory(cat, "UMUM");
+      setCategories((prev) =>
+        prev.filter((c) => c !== cat).concat(prev.includes("UMUM") ? [] : ["UMUM"]).sort()
+      );
+      await fetchActivities();
+    } catch {
+      setCategoryError("Gagal menghapus kategori.");
+    }
+  };
+
+  const openEditCategory = (cat: string) => {
+    setEditingCategory(cat);
+    setCategoryFormData({ name: cat });
+    setCategoryError(null);
+  };
+
+  const closeCategoryModal = () => {
+    setIsCategoryModalOpen(false);
+    setEditingCategory(null);
+    setCategoryFormData({ name: "" });
+    setCategoryError(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Halaman */}
@@ -250,13 +343,22 @@ export default function ActivitiesPage() {
           </p>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-600/20 flex items-center gap-2 self-start sm:self-auto transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Kegiatan Baru</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-purple-600/20 flex items-center gap-2 transition"
+          >
+            <Tag className="w-4 h-4" />
+            <span>Kelola Kategori</span>
+          </button>
+          <button
+            onClick={openAddModal}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-600/20 flex items-center gap-2 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tambah Kegiatan Baru</span>
+          </button>
+        </div>
       </div>
 
       {/* Info Card Pengingat Auto Buka/Tutup */}
@@ -339,6 +441,18 @@ export default function ActivitiesPage() {
                   <h3 className="text-xl font-bold text-white tracking-tight">
                     {act.name}
                   </h3>
+
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      <Tag className="w-2.5 h-2.5" />
+                      {act.category || "UMUM"}
+                    </span>
+                    {isActive && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        {activities.filter((x) => x.category === (act.category || "UMUM")).length} kegiatan
+                      </span>
+                    )}
+                  </div>
 
                   <p className="text-xs text-slate-400 mt-1">
                     Hari:{" "}
@@ -467,6 +581,39 @@ export default function ActivitiesPage() {
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                   required
                 />
+              </div>
+
+              {/* Kategori Kegiatan */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2">
+                  Kategori Kegiatan *
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, category: cat })}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition ${
+                        formData.category === cat
+                          ? "bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-600/20"
+                          : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border bg-slate-800 border-dashed border-slate-600 text-emerald-400 hover:border-emerald-500 transition inline-flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Buat Kategori
+                  </button>
+                </div>
+                <span className="text-[11px] text-slate-500">
+                  Semua kegiatan dengan kategori yang sama akan digabung pada Rekap &amp; Laporan Presensi
+                </span>
               </div>
 
               {/* Hari Berlaku */}
@@ -704,6 +851,118 @@ export default function ActivitiesPage() {
               >
                 Ya, Hapus
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kelola Kategori */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <Tag className="w-4 h-4 text-purple-400" />
+                Kelola Kategori Kegiatan
+              </h3>
+              <button
+                onClick={closeCategoryModal}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto">
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Kelompokkan kegiatan agar rekap presensi lebih ringkas. Semua kegiatan
+                dalam satu kategori akan digabung otomatis pada menu{" "}
+                <strong className="text-slate-200">Rekap &amp; Laporan Presensi</strong>.
+              </p>
+
+              {/* Form Tambah / Edit Kategori */}
+              <form onSubmit={handleCategorySubmit} className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 space-y-3">
+                <label className="block text-xs font-semibold text-slate-300">
+                  {editingCategory ? "Ubah Nama Kategori" : "Nama Kategori Baru"}
+                </label>
+                {categoryError && (
+                  <div className="p-2.5 rounded-xl bg-rose-950/80 border border-rose-500 text-rose-200 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{categoryError}</span>
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={categoryFormData.name}
+                  onChange={(e) => setCategoryFormData({ name: e.target.value })}
+                  placeholder="Contoh: Presensi Masuk, Presensi Pulang, Upacara"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                  required
+                />
+                <div className="flex justify-end gap-2">
+                  {editingCategory && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCategory(null);
+                        setCategoryFormData({ name: "" });
+                        setCategoryError(null);
+                      }}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    >
+                      Batal
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isSavingCategory}
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50"
+                  >
+                    {isSavingCategory ? "Menyimpan..." : editingCategory ? "Update" : "Tambah"}
+                  </button>
+                </div>
+              </form>
+
+              {/* Daftar Kategori */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-blue-400" />
+                  Daftar Kategori ({categories.length})
+                </h4>
+                <ul className="space-y-2 max-h-64 overflow-y-auto">
+                  {categories.map((cat) => {
+                    const count = activities.filter((a) => (a.category || "UMUM") === cat).length;
+                    return (
+                      <li
+                        key={cat}
+                        className="flex items-center justify-between gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl"
+                      >
+                        <div className="min-w-0">
+                          <span className="block text-sm font-bold text-white truncate">{cat}</span>
+                          <span className="block text-[11px] text-slate-400">{count} kegiatan</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => openEditCategory(cat)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-700 transition"
+                            title="Ubah Nama Kategori"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(cat)}
+                            disabled={isSavingCategory}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-700 transition disabled:opacity-50"
+                            title="Hapus Kategori"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
           </div>
         </div>

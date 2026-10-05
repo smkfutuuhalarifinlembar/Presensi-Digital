@@ -328,23 +328,7 @@ export default function ReportsPage() {
         </div>
 
         {/* Dropdown Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
-          <div>
-            <label className="block text-slate-400 font-semibold mb-1">Kegiatan</label>
-            <select
-              value={activityId}
-              onChange={(e) => setActivityId(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500"
-            >
-              <option value="ALL">Semua Kegiatan</option>
-              {activities.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
           <div>
             <label className="block text-slate-400 font-semibold mb-1">Kategori Kegiatan</label>
             <select
@@ -500,7 +484,7 @@ export default function ReportsPage() {
             <span>Memuat data laporan...</span>
           </div>
         ) : viewMode === "matrix" ? (
-          <MatrixView matrix={matrix} isMonthly={true} startDate={startDate} endDate={endDate} />
+          <MatrixView matrix={matrix} isMonthly={true} category={category} onSaved={fetchReports} />
         ) : records.length === 0 ? (
           <div className="p-12 text-center text-slate-500 text-sm">
             Tidak ada data presensi pada rentang filter ini.
@@ -607,7 +591,17 @@ const STATUS_BG: Record<string, string> = {
   LIBUR: "#fecdd3",
 };
 
-function MatrixView({ matrix, isMonthly = false, startDate, endDate }: { matrix: any; isMonthly?: boolean; startDate: string; endDate: string }) {
+function MatrixView({
+  matrix,
+  isMonthly = false,
+  category,
+  onSaved,
+}: {
+  matrix: any;
+  isMonthly?: boolean;
+  category: string;
+  onSaved: () => Promise<void> | void;
+}) {
   if (!matrix || !matrix.dates || matrix.dates.length === 0) {
     return (
       <div className="p-12 text-center text-slate-500 text-sm">
@@ -631,56 +625,30 @@ function MatrixView({ matrix, isMonthly = false, startDate, endDate }: { matrix:
   const handleSaveCell = async (personId: string, date: string, newStatus: string) => {
     setSaving(true);
     try {
-      const params = new URLSearchParams({
-        startDate: startDate,
-        endDate: endDate,
-        activityId: "ALL",
-        role: "ALL",
-        className: "ALL",
-        status: "ALL",
-        search: "",
-        view: isMonthly ? "monthly" : "matrix",
-        limit: "200",
+      const res = await fetch("/api/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personId,
+          dateString: date,
+          status: newStatus,
+          activityId: "ALL",
+          category,
+        }),
       });
-      
-      // Get activityId from the first row's cells (find first non-LIBUR record to get activity)
-      const res = await fetch(`/api/reports?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        // Find the activityId for this person/date
-        let activityId = "ALL";
-        if (json.matrix) {
-          const personRow = json.matrix.find((r: any) => r.personId === personId);
-          if (personRow && personRow.cells[date] && personRow.cells[date] !== "LIBUR" && personRow.cells[date] !== "ALPA") {
-            // We need to fetch the actual record to get activityId
-            // For now, use ALL and let the API handle it
-            activityId = "ALL";
-          }
-        }
-        
-        const updateRes = await fetch("/api/reports", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ personId, dateString: date, status: newStatus, activityId }),
-        });
-        
-        if (updateRes.ok) {
-          // Refresh the matrix data
-          const refreshRes = await fetch(`/api/reports?${params.toString()}`);
-          if (refreshRes.ok) {
-            const freshData = await refreshRes.json();
-            // Update matrix in parent via callback or we'll need a different approach
-            // For now, just close edit mode and let parent refetch
-            window.location.reload(); // Simple approach - reload page
-          }
-        }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Gagal menyimpan perubahan");
       }
-    } catch (err) {
-      console.error("Error saving cell:", err);
-      alert("Gagal menyimpan perubahan");
+
+      setEditingCell(null);
+      await onSaved();
+    } catch (err: any) {
+      console.error("Gagal menyimpan sel:", err);
+      alert(err?.message || "Gagal menyimpan perubahan");
     } finally {
       setSaving(false);
-      setEditingCell(null);
     }
   };
 
@@ -801,21 +769,44 @@ function MatrixView({ matrix, isMonthly = false, startDate, endDate }: { matrix:
                     return (
                       <td
                         key={d}
-                        className="px-1 py-1.5 border border-slate-700 print:border-slate-300 text-center"
+                        className="px-1 py-1.5 border border-blue-500 print:border-slate-300 text-center"
                       >
                         <select
                           value={editingCell.currentValue}
-                          onChange={(e) => handleSaveCell(row.personId, d, e.target.value)}
-                          onBlur={handleCancelEdit}
-                          className="w-full bg-slate-800 border border-blue-500 text-white rounded text-[10px] px-1 py-0.5 focus:outline-none"
+                          onChange={(e) =>
+                            setEditingCell({ ...editingCell, currentValue: e.target.value })
+                          }
+                          disabled={saving}
+                          className="w-full bg-slate-800 border border-blue-500 text-white rounded text-[10px] px-1 py-0.5 focus:outline-none disabled:opacity-60"
                           autoFocus
                         >
+                          <option value="">-- Pilih --</option>
                           {STATUS_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value} className={opt.color}>
+                            <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
                           ))}
                         </select>
+                        <div className="flex items-center justify-center gap-1 mt-1">
+                          <button
+                            onClick={() =>
+                              handleSaveCell(row.personId, d, editingCell.currentValue)
+                            }
+                            disabled={saving || editingCell.currentValue === v}
+                            title="Simpan"
+                            className="p-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40"
+                          >
+                            <Save className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            disabled={saving}
+                            title="Batal"
+                            className="p-1 rounded-md bg-slate-700 hover:bg-slate-600 text-white disabled:opacity-40"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                     );
                   }
