@@ -16,6 +16,7 @@ export async function GET(req: Request) {
     const startDate = searchParams.get("startDate") || today;
     const endDate = searchParams.get("endDate") || today;
     const activityId = searchParams.get("activityId");
+    const category = searchParams.get("category");
     const role = searchParams.get("role");
     const className = searchParams.get("className");
     const status = searchParams.get("status");
@@ -27,7 +28,22 @@ export async function GET(req: Request) {
       },
     };
 
-    if (activityId && activityId !== "ALL") where.activityId = activityId;
+    // Handle category filter - get activity IDs for the category
+    let categoryActivityIds: string[] = [];
+    if (category && category !== "ALL") {
+      const activities = await prisma.activity.findMany({
+        where: { category, isActive: true },
+        select: { id: true },
+      });
+      categoryActivityIds = activities.map((a) => a.id);
+    }
+
+    // Determine activity filter: specific activityId OR category activities
+    if (activityId && activityId !== "ALL") {
+      where.activityId = activityId;
+    } else if (categoryActivityIds.length > 0) {
+      where.activityId = { in: categoryActivityIds };
+    }
     if (status && status !== "ALL") where.status = status;
     if (role && role !== "ALL") where.person = { ...where.person, role };
     if (className && className !== "ALL") where.person = { ...where.person, className };

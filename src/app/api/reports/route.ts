@@ -61,6 +61,7 @@ export async function GET(req: Request) {
     const startDate = searchParams.get("startDate") || today;
     const endDate = searchParams.get("endDate") || today;
     const activityId = searchParams.get("activityId");
+    const category = searchParams.get("category");
     const role = searchParams.get("role");
     const className = searchParams.get("className");
     const status = searchParams.get("status");
@@ -69,6 +70,14 @@ export async function GET(req: Request) {
     const limit = Math.max(1, Math.min(200, parseInt(searchParams.get("limit") || "50")));
     const view = (searchParams.get("view") || "list").toLowerCase(); // list | matrix | monthly
 
+    // Fetch distinct categories for dropdown
+    const categories = await prisma.activity.findMany({
+      where: { isActive: true },
+      select: { category: true },
+      distinct: ["category"],
+    });
+    const categoryOptions = categories.map((c) => c.category).filter(Boolean) as string[];
+
     const where: any = {
       dateString: {
         gte: startDate,
@@ -76,8 +85,21 @@ export async function GET(req: Request) {
       },
     };
 
+    // Handle category filter - get activity IDs for the category
+    let categoryActivityIds: string[] = [];
+    if (category && category !== "ALL") {
+      const activities = await prisma.activity.findMany({
+        where: { category, isActive: true },
+        select: { id: true },
+      });
+      categoryActivityIds = activities.map((a) => a.id);
+    }
+
+    // Determine activity filter: specific activityId OR category activities
     if (activityId && activityId !== "ALL") {
       where.activityId = activityId;
+    } else if (categoryActivityIds.length > 0) {
+      where.activityId = { in: categoryActivityIds };
     }
 
     if (status && status !== "ALL") {
@@ -126,7 +148,7 @@ export async function GET(req: Request) {
         }),
         prisma.attendanceRecord.findMany({
           where,
-          include: { activity: { select: { name: true } } },
+          include: { activity: { select: { name: true, category: true } } },
         }),
         getHolidaysForRange(startDate, endDate),
       ]);
@@ -207,6 +229,7 @@ export async function GET(req: Request) {
         startDate,
         endDate,
         matrix,
+        categories: categoryOptions,
       });
     }
 
@@ -234,7 +257,7 @@ export async function GET(req: Request) {
         }),
         prisma.attendanceRecord.findMany({
           where,
-          include: { activity: { select: { name: true } } },
+          include: { activity: { select: { name: true, category: true } } },
         }),
         getHolidaysForRange(startDate, endDate),
       ]);
@@ -310,6 +333,7 @@ export async function GET(req: Request) {
         startDate,
         endDate,
         matrix,
+        categories: categoryOptions,
       });
     }
 
@@ -358,6 +382,7 @@ export async function GET(req: Request) {
       limit,
       totalPages: Math.ceil(total / limit),
       summary,
+      categories: categoryOptions,
     });
   } catch (err: any) {
     return NextResponse.json(
@@ -376,7 +401,7 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { personId, dateString, status, activityId } = body;
+    const { personId, dateString, status, activityId, category } = body;
 
     if (!personId || !dateString || !status) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -430,11 +455,22 @@ export async function PATCH(req: Request) {
       // Need to get a default activity if not provided
       let targetActivityId = activityId;
       if (!targetActivityId || targetActivityId === "ALL") {
-        const firstActivity = await prisma.activity.findFirst({
-          where: { isActive: true },
-          orderBy: { createdAt: "asc" },
-        });
-        targetActivityId = firstActivity?.id;
+        if (category && category !== "ALL") {
+          // Find first activity in the category
+          const categoryActivity = await prisma.activity.findFirst({
+            where: { category, isActive: true },
+            orderBy: { createdAt: "asc" },
+          });
+          targetActivityId = categoryActivity?.id;
+        }
+        if (!targetActivityId) {
+          // Fallback to any active activity
+          const firstActivity = await prisma.activity.findFirst({
+            where: { isActive: true },
+            orderBy: { createdAt: "asc" },
+          });
+          targetActivityId = firstActivity?.id;
+        }
       }
       
       if (!targetActivityId) {

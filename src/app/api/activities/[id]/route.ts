@@ -20,6 +20,7 @@ export async function PUT(
     const body = await req.json();
     const {
       name,
+      category,
       daysOfWeek,
       specificDate,
       startTime,
@@ -36,6 +37,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(name ? { name: name.trim() } : {}),
+        ...(category !== undefined ? { category: category?.trim() || "UMUM" } : {}),
         ...(daysOfWeek !== undefined ? { daysOfWeek } : {}),
         specificDate: specificDate !== undefined ? (specificDate ? specificDate.trim() : null) : undefined,
         ...(startTime ? { startTime: startTime.trim() } : {}),

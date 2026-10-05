@@ -38,6 +38,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       name,
+      category = "UMUM",
       daysOfWeek = "ALL",
       specificDate,
       startTime,
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
     const newActivity = await prisma.activity.create({
       data: {
         name: name.trim(),
+        category: category?.trim() || "UMUM",
         daysOfWeek: daysOfWeek || "ALL",
         specificDate: specificDate ? specificDate.trim() : null,
         startTime: startTime.trim(),

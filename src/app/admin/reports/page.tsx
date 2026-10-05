@@ -62,6 +62,8 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState<string>(formatLocalDate(firstDayOfMonth));
   const [endDate, setEndDate] = useState<string>(formatLocalDate(lastDayOfMonth));
   const [activityId, setActivityId] = useState<string>("ALL");
+  const [category, setCategory] = useState<string>("ALL");
+  const [categories, setCategories] = useState<string[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [classFilter, setClassFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -115,6 +117,7 @@ export default function ReportsPage() {
         startDate,
         endDate,
         activityId,
+        category,
         role: roleFilter,
         className: classFilter,
         status: statusFilter,
@@ -126,6 +129,7 @@ export default function ReportsPage() {
       const res = await fetch(`/api/reports?${params.toString()}`);
       if (res.ok) {
         const json = await res.json();
+        if (json.categories) setCategories(json.categories);
         if (viewMode === "matrix") {
           setMatrix(json);
           setRecords([]);
@@ -206,7 +210,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReports();
-  }, [startDate, endDate, activityId, roleFilter, classFilter, statusFilter, viewMode]);
+  }, [startDate, endDate, activityId, category, roleFilter, classFilter, statusFilter, viewMode]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,7 +279,7 @@ export default function ReportsPage() {
 
           {/* Tombol Export Excel */}
           <a
-            href={`/api/reports/export?startDate=${startDate}&endDate=${endDate}&activityId=${activityId}&role=${roleFilter}&className=${classFilter}&status=${statusFilter}`}
+            href={`/api/reports/export?startDate=${startDate}&endDate=${endDate}&activityId=${activityId}&category=${category}&role=${roleFilter}&className=${classFilter}&status=${statusFilter}`}
             download
             className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition"
           >
@@ -324,7 +328,7 @@ export default function ReportsPage() {
         </div>
 
         {/* Dropdown Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
           <div>
             <label className="block text-slate-400 font-semibold mb-1">Kegiatan</label>
             <select
@@ -342,13 +346,29 @@ export default function ReportsPage() {
           </div>
 
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Kategori</label>
+            <label className="block text-slate-400 font-semibold mb-1">Kategori Kegiatan</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500"
+            >
+              <option value="ALL">Semua Kategori</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-semibold mb-1">Peran</label>
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500"
             >
-              <option value="ALL">Semua Kategori</option>
+              <option value="ALL">Semua Peran</option>
               <option value="SISWA">Siswa</option>
               <option value="GURU">Guru</option>
               <option value="PEGAWAI">Pegawai & Staf</option>
