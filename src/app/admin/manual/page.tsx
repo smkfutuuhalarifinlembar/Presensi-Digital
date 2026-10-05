@@ -35,10 +35,19 @@ export default function ManualAttendancePage() {
   const [bulkMessage, setBulkMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Form State
-  const [selectedActivityId, setSelectedActivityId] = useState<string>("");
   const [status, setStatus] = useState<string>("HADIR");
   const [remarks, setRemarks] = useState<string>("");
   const [dateString, setDateString] = useState<string>(getTodayDateString());
+  const [endDateString, setEndDateString] = useState<string>(getTodayDateString());
+
+  const dayCount =
+    dateString && endDateString && endDateString >= dateString
+      ? Math.round(
+          (new Date(`${endDateString}T00:00:00`).getTime() -
+            new Date(`${dateString}T00:00:00`).getTime()) /
+            86400000
+        ) + 1
+      : 0;
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -66,11 +75,6 @@ export default function ManualAttendancePage() {
         if (res.ok) {
           const json = await res.json();
           setActivities(json.activities || []);
-          if (json.activities && json.activities.length > 0) {
-            // Pilih yang sedang aktif atau kegiatan pertama
-            const active = json.activities.find((a: any) => a.state === "ACTIVE");
-            setSelectedActivityId(active ? active.id : json.activities[0].id);
-          }
         }
       } catch (err) {
         console.error("Gagal memuat kegiatan:", err);
@@ -202,8 +206,16 @@ export default function ManualAttendancePage() {
       return;
     }
 
-    if (!selectedActivityId) {
-      setMessage({ type: "error", text: "Pilih kegiatan presensi." });
+    if (!dateString) {
+      setMessage({ type: "error", text: "Pilih tanggal mulai presensi." });
+      return;
+    }
+
+    if (endDateString && endDateString < dateString) {
+      setMessage({
+        type: "error",
+        text: "Tanggal selesai tidak boleh lebih awal dari tanggal mulai.",
+      });
       return;
     }
 
@@ -216,10 +228,10 @@ export default function ManualAttendancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           personId: selectedPerson.id,
-          activityId: selectedActivityId,
           status,
           remarks: remarks.trim() || undefined,
           dateString,
+          endDateString: endDateString || dateString,
         }),
       });
 
@@ -416,38 +428,56 @@ export default function ManualAttendancePage() {
             )}
           </div>
 
-          {/* Langkah 2: Pilih Kegiatan & Tanggal */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                2. Sesi / Kegiatan Presensi *
-              </label>
-              <select
-                value={selectedActivityId}
-                onChange={(e) => setSelectedActivityId(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-                required
-              >
-                {activities.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.startTime} - {a.endTime})
-                  </option>
-                ))}
-              </select>
+          {/* Langkah 2: Rentang Tanggal Presensi */}
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              2. Rentang Tanggal Presensi *
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Tanggal Mulai
+                </label>
+                <input
+                  type="date"
+                  value={dateString}
+                  onChange={(e) => {
+                    setDateString(e.target.value);
+                    if (e.target.value && endDateString < e.target.value) {
+                      setEndDateString(e.target.value);
+                    }
+                  }}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Sampai Tanggal Presensi
+                </label>
+                <input
+                  type="date"
+                  value={endDateString}
+                  min={dateString}
+                  onChange={(e) => setEndDateString(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                Tanggal Presensi
-              </label>
-              <input
-                type="date"
-                value={dateString}
-                onChange={(e) => setDateString(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
+            <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+              Status di bawah akan otomatis diterapkan ke{" "}
+              <strong className="text-slate-200">semua kegiatan</strong> milik orang
+              ini pada rentang tersebut
+              {dayCount > 1 ? (
+                <>
+                  {" "}(<strong className="text-blue-300">{dayCount} hari</strong>)
+                </>
+              ) : null}
+              . Hari Minggu, libur nasional, atau hari tanpa kegiatan otomatis dilewati.
+            </p>
           </div>
 
           {/* Langkah 3: Status Kehadiran */}
@@ -498,20 +528,22 @@ export default function ManualAttendancePage() {
             />
           </div>
 
-          {/* Notifikasi WA selalu aktif agar hasil setiap presensi tercatat. */}
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <MessageSquare className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-emerald-300">
-                Notifikasi WhatsApp otomatis aktif
-              </div>
-              <div className="text-xs text-slate-400">
-                Setiap penyimpanan langsung memicu WA. Jika gateway bermasalah, presensi tetap aman dan dapat dikirim ulang dari menu Riwayat Notifikasi.
-              </div>
-            </div>
-          </div>
+{/* Notifikasi WA selalu aktif agar hasil setiap presensi tercatat. */}
+           <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
+             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+               <MessageSquare className="w-5 h-5" />
+             </div>
+             <div>
+               <div className="text-sm font-bold text-emerald-300">
+                 Notifikasi WhatsApp otomatis aktif
+               </div>
+               <div className="text-xs text-slate-400">
+                 Untuk presensi ber rentang, satu pesan dikirim per tanggal agar tidak
+                 membanjiri. Jika gateway bermasalah, presensi tetap aman dan dapat
+                 dikirim ulang dari menu Riwayat Notifikasi.
+               </div>
+             </div>
+           </div>
 
            {/* Tombol Simpan */}
            <div className="pt-4 border-t border-slate-800 flex justify-end">

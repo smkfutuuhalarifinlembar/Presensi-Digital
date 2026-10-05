@@ -354,6 +354,36 @@ export function activityAppliesToPerson(
   return true;
 }
 
+/**
+ * Menentukan apakah sebuah kegiatan benar-benar berjalan pada tanggal tertentu.
+ * - specificDate: kegiatan sekali jalan, hanya berlaku pada tanggal itu.
+ * - daysOfWeek "ALL": berlaku setiap hari.
+ * - daysOfWeek: daftar "0"=Ahad ... "6"=Sabtu, dipisah koma.
+ * Dipakai oleh input presensi manual agar status hanya dicatat pada hari
+ * kegiatanScheduled-nya benar-benar ada.
+ */
+export function activityRunsOnDate(
+  activity: {
+    daysOfWeek: string;
+    specificDate: string | null;
+  },
+  dateString: string
+): boolean {
+  if (activity.specificDate) {
+    return activity.specificDate === dateString;
+  }
+  if (!activity.daysOfWeek || activity.daysOfWeek === "ALL") {
+    return true;
+  }
+  const d = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return false;
+  const dayOfWeek = String(d.getDay()); // 0 = Ahad, 1 = Senin, ...
+  return activity.daysOfWeek
+    .split(",")
+    .map((x) => x.trim())
+    .includes(dayOfWeek);
+}
+
 export function calculatePresenceStatus(
   activity: {
     startTime: string;
