@@ -67,6 +67,7 @@ export default function NotificationLogsPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [retryingAll, setRetryingAll] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [cleanupSetting, setCleanupSetting] = useState<any>({
@@ -188,6 +189,27 @@ export default function NotificationLogsPage() {
     }
   };
 
+  const retryAllFailed = async () => {
+    if (summary.failed === 0) {
+      setActionMessage({ type: "success", text: "Tidak ada notifikasi gagal yang perlu dikirim ulang." });
+      return;
+    }
+    if (!window.confirm(`Kirim ulang ${summary.failed} notifikasi yang gagal? Proses dilakukan berurutan dan bisa memakan waktu.`)) return;
+    setRetryingAll(true);
+    setActionMessage(null);
+    try {
+      const res = await fetch(`/api/notification-logs/retry-failed`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal mengirim ulang notifikasi gagal.");
+      setActionMessage({ type: json.success ? "success" : "error", text: json.message });
+      await loadLogs();
+    } catch (error: any) {
+      setActionMessage({ type: "error", text: error?.message || "Gagal mengirim ulang notifikasi gagal." });
+    } finally {
+      setRetryingAll(false);
+    }
+  };
+
   const retry = async (log: any) => {
     if (!window.confirm(`Kirim ulang notifikasi WhatsApp untuk ${log.attendance.person.name}?`)) return;
     setRetryingId(log.id);
@@ -225,9 +247,14 @@ export default function NotificationLogsPage() {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Riwayat Notifikasi WhatsApp</h1>
           <p className={`text-sm mt-1 ${muted}`}>Pantau setiap percobaan kirim, lihat error, dan kirim ulang notifikasi gagal.</p>
         </div>
-        <button onClick={loadLogs} disabled={loading} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Segarkan
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={retryAllFailed} disabled={retryingAll || summary.failed === 0} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
+            <RotateCcw className={`w-4 h-4 ${retryingAll ? "animate-spin" : ""}`} /> Kirim ulang semua gagal{summary.failed > 0 ? ` (${summary.failed})` : ""}
+          </button>
+          <button onClick={loadLogs} disabled={loading} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Segarkan
+          </button>
+        </div>
       </div>
 
       <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${activeGateway.isConfigured && activeGateway.isEnabled ? "border-emerald-500/25 bg-emerald-500/10" : "border-rose-500/25 bg-rose-500/10"}`}>
