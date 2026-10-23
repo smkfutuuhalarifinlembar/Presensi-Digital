@@ -26,6 +26,7 @@ import {
   playWarningChime,
   playErrorBuzz,
   speakPresence,
+  testSpeakPresence,
   triggerSuccessConfetti,
 } from "@/lib/sound-player";
 
@@ -217,9 +218,9 @@ export default function KioskPage() {
           } else {
             playWarningChime();
           }
-          // Panggil Text-to-Speech
+          // Panggil Text-to-Speech (termasuk nama kegiatan)
           setTimeout(() => {
-            speakPresence(json.person.name, json.status);
+            speakPresence(json.person.name, json.status, json.activityName);
           }, 200);
         }
 
@@ -499,6 +500,37 @@ export default function KioskPage() {
               </>
             )}
           </button>
+
+          {/* Tombol Test TTS (hanya untuk verifikasi suara sebelum produksi) */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => testSpeakPresence()}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700 transition"
+              title="Test suara TTS (default)"
+            >
+              <Volume2 className="w-3 h-3" />
+              <span>Test TTS</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => testSpeakPresence("laki-laki")}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700 transition"
+              title="Test suara TTS laki-laki"
+            >
+              <span className="text-xs">♂</span>
+              <span>Laki</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => testSpeakPresence("perempuan")}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700 transition"
+              title="Test suara TTS perempuan"
+            >
+              <span className="text-xs">♀</span>
+              <span>Perem</span>
+            </button>
+          </div>
         </div>
 
         {/* Akses Login Khusus Admin */}

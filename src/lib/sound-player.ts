@@ -112,9 +112,60 @@ export function playErrorBuzz() {
 }
 
 /**
- * Text-to-Speech (Menyebutkan nama dan status)
+ * Text-to-Speech (Menyebutkan nama, kegiatan, dan status)
+ *
+ * Format ucapan: "{nama}, kegiatan {aktivitas}, {keterangan status}"
+ * Contoh: "Fathul Aziz, kegiatan Presensi Pagi Masuk, Hadir tepat waktu."
+ * Contoh: "Fathul Aziz, kegiatan Upacara Bendera Senin, Tercatat terlambat."
+ *
+ * Jika activityName tidak tersedia, kembali ke format lama tanpa kegiatan.
  */
-export function speakPresence(name: string, status: string) {
+export type TtsVoiceType = "laki-laki" | "perempuan";
+
+/**
+ * Pilih suara TTS berdasarkan jenis kelamin.
+ * Prioritas: suara Indonesia dengan nama yang cocok (Andika=laki-laki, Riska=perempuan),
+ * lalu fallback ke suara Indonesia pertama yang tersedia.
+ */
+function pickVoiceByGender(voiceType?: TtsVoiceType): SpeechSynthesisVoice | undefined {
+  if (typeof window === "undefined") return undefined;
+
+  const voices = window.speechSynthesis.getVoices();
+  const idVoices = voices.filter((v) => v.lang.startsWith("id"));
+
+  if (idVoices.length === 0) return undefined;
+
+  if (voiceType === "laki-laki") {
+    return idVoices.find((v) => v.name.toLowerCase().includes("andika")) || idVoices[0];
+  }
+  if (voiceType === "perempuan") {
+    return idVoices.find((v) => v.name.toLowerCase().includes("riska")) || idVoices[0];
+  }
+
+  // Default (tanpa preferensi): cewek dulu, lalu cowok, lalu pertama yang ada
+  return (
+    idVoices.find((v) => v.name.toLowerCase().includes("riska")) ||
+    idVoices.find((v) => v.name.toLowerCase().includes("andika")) ||
+    idVoices[0]
+  );
+}
+
+/**
+ * Text-to-Speech (Menyebutkan nama, kegiatan, dan status)
+ *
+ * Format ucapan: "{nama}, kegiatan {aktivitas}, {keterangan status}"
+ * Contoh: "Fathul Aziz, kegiatan Presensi Pagi Masuk, Hadir tepat waktu."
+ * Contoh: "Fathul Aziz, kegiatan Upacara Bendera Senin, Tercatat terlambat."
+ *
+ * Jika activityName tidak tersedia, kembali ke format lama tanpa kegiatan.
+ * voiceType opsional: "laki-laki" atau "perempuan" untuk memilih gender suara TTS.
+ */
+export function speakPresence(
+  name: string,
+  status: string,
+  activityName?: string | null,
+  voiceType?: TtsVoiceType
+) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
   try {
@@ -127,16 +178,17 @@ export function speakPresence(name: string, status: string) {
         ? "Tercatat terlambat."
         : status;
 
-    const text = `Terima kasih, ${name}. ${statusText}`;
+    let text: string;
+    if (activityName && activityName.trim()) {
+      text = `${name}, kegiatan ${activityName.trim()}, ${statusText}`;
+    } else {
+      text = `Terima kasih, ${name}. ${statusText}`;
+    }
     const utterance = new SpeechSynthesisUtterance(text);
 
-    // Cari suara Bahasa Indonesia jika ada
-    const voices = window.speechSynthesis.getVoices();
-    const idVoice = voices.find(
-      (v) => v.lang.startsWith("id") || v.lang.includes("ID")
-    );
-    if (idVoice) {
-      utterance.voice = idVoice;
+    const selectedVoice = pickVoiceByGender(voiceType);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
     }
     utterance.lang = "id-ID";
     utterance.rate = 1.05;
@@ -146,6 +198,20 @@ export function speakPresence(name: string, status: string) {
   } catch (err) {
     console.warn("Speech synthesis error:", err);
   }
+}
+
+/**
+ * Uji coba suara TTS sebelum digunakan di produksi.
+ * Membicakan kalimat tes dengan nama aktivitas "Test Sistem TTS".
+ */
+export function testSpeakPresence(voiceType?: TtsVoiceType) {
+  const label =
+    voiceType === "laki-laki"
+      ? "suara laki-laki"
+      : voiceType === "perempuan"
+        ? "suara perempuan"
+        : "suara default";
+  speakPresence("Uji Coba TTS", "HADIR", `Ini adalah tes ${label}`, voiceType);
 }
 
 /**
