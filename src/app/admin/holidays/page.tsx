@@ -21,27 +21,61 @@ export default function HolidaysPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Institutions for scope selection
+  const [institutions, setInstitutions] = useState<any[]>([]);
+
   // Calendar state
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState<number>(today.getMonth());
   const [currentYear, setCurrentYear] = useState<number>(today.getFullYear());
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    dateString: string;
+    name: string;
+    type: string;
+    description: string;
+    institutionId: string;
+    startDate: string;
+    endDate: string;
+  }>({
     dateString: "",
     name: "",
     type: "NATIONAL",
     description: "",
+    institutionId: "all", // Default to "all" (Semua Lembaga)
+    startDate: "",
+    endDate: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const isDark = theme === "dark";
 
+  const fetchInstitutions = async () => {
+    try {
+      const res = await fetch("/api/institutions?isActive=true", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        setInstitutions(json.institutions || []);
+      }
+    } catch (err) {
+      console.error("Gagal memuat data lembaga:", err);
+    }
+  };
+
   const fetchHolidays = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/holidays?year=${currentYear}&month=${currentMonth + 1}`);
+      const params = new URLSearchParams({
+        year: String(currentYear),
+        month: String(currentMonth + 1),
+      });
+      // "all" (Semua Lembaga) berarti tidak filter institutionId
+      if (formData.institutionId !== "all") {
+        params.set("institutionId", formData.institutionId);
+      }
+      const res = await fetch(`/api/holidays?${params.toString()}`);
       if (res.ok) {
         const json = await res.json();
         setHolidays(json.holidays || []);
@@ -54,8 +88,9 @@ export default function HolidaysPage() {
   };
 
   useEffect(() => {
+    fetchInstitutions();
     fetchHolidays();
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, formData.institutionId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +101,12 @@ export default function HolidaysPage() {
       const res = await fetch("/api/holidays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          institutionId: formData.institutionId === "all" ? null : formData.institutionId,
+          startDate: formData.startDate || null,
+          endDate: formData.endDate || null,
+        }),
       });
 
       const json = await res.json();
@@ -74,7 +114,7 @@ export default function HolidaysPage() {
       if (res.ok && json.success) {
         setResult({ type: "success", text: "Hari libur berhasil ditambahkan." });
         setIsModalOpen(false);
-        setFormData({ dateString: "", name: "", type: "NATIONAL", description: "" });
+        setFormData({ dateString: "", name: "", type: "NATIONAL", description: "", institutionId: "all", startDate: "", endDate: "" });
         fetchHolidays();
       } else {
         setFormError(json.error || "Gagal menyimpan data libur.");
@@ -172,7 +212,7 @@ export default function HolidaysPage() {
 
         <button
           onClick={() => {
-            setFormData({ dateString: "", name: "", type: "NATIONAL", description: "" });
+            setFormData({ dateString: "", name: "", type: "NATIONAL", description: "", institutionId: "all", startDate: "", endDate: "" });
             setFormError(null);
             setIsModalOpen(true);
           }}
@@ -340,7 +380,7 @@ export default function HolidaysPage() {
                     setDeleteConfirm(holiday.id);
                   } else {
                     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                    setFormData({ dateString: dateStr, name: "", type: "NATIONAL", description: "" });
+                    setFormData({ dateString: dateStr, name: "", type: "NATIONAL", description: "", institutionId: "all", startDate: "", endDate: "" });
                     setFormError(null);
                     setIsModalOpen(true);
                   }
@@ -453,6 +493,11 @@ export default function HolidaysPage() {
                       <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-500/20 text-rose-500">
                         {holiday.type === "NATIONAL" ? "Nasional" : "Sekolah"}
                       </span>
+                      {holiday.institution && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-500 border border-blue-400/30">
+                          {holiday.institution.name}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -479,6 +524,21 @@ export default function HolidaysPage() {
           <div className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl ${
             isDark ? "bg-slate-900 border border-slate-800" : "bg-white border border-slate-200"
           }`}>
+                <div>
+                  <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                    Tanggal Awal
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    className={`w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 border ${
+                      isDark
+                        ? "bg-slate-800 border-slate-700 text-slate-200"
+                        : "bg-slate-50 border-slate-300 text-slate-800"
+                    }`}
+                  />
+                </div>
             <div className={`px-6 py-4 border-b flex items-center justify-between ${
               isDark ? "border-slate-800" : "border-slate-200"
             }`}>
@@ -526,6 +586,28 @@ export default function HolidaysPage() {
                   }`}
                   required
                 />
+                <div>
+                  <label className={`block text-xs font-semibold mb-1 ${
+                    isDark ? "text-slate-300" : "text-slate-600"
+                  }`}>
+                    Tanggal Akhir (Opsional - Rentang)
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    className={`w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 border ${
+                      isDark
+                        ? "bg-slate-800 border-slate-700 text-slate-200"
+                        : "bg-slate-50 border-slate-300 text-slate-800"
+                    }`}
+                  />
+                  <p className={`text-[10px] ${
+                    isDark ? "text-slate-400" : "text-slate-500"
+                  } mt-1`}>
+                    Kosongkan untuk tanggal tunggal. Isi untuk membuat libur berkelanjutan (contoh: 25-27 Desember).
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -566,6 +648,37 @@ export default function HolidaysPage() {
                   <option value="NATIONAL">Libur Nasional</option>
                   <option value="SCHOOL">Libur Sekolah</option>
                 </select>
+              </div>
+              <div>
+                <label className={`block text-xs font-semibold mb-1 ${
+                  isDark ? "text-slate-300" : "text-slate-600"
+                }`}>
+                  Cakupan Lembaga
+                </label>
+                <select
+                  value={formData.institutionId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, institutionId: e.target.value })
+                  }
+                  className={`w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 border ${
+                    isDark
+                      ? "bg-slate-800 border-slate-700 text-slate-200"
+                      : "bg-slate-50 border-slate-300 text-slate-800"
+                  }`}
+                >
+                  <option value="all">Semua Lembaga (Global)</option>
+                  {institutions.map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name} ({inst.level})
+                    </option>
+                  ))}
+                </select>
+                <p className={`text-[10px] ${
+                  isDark ? "text-slate-400" : "text-slate-500"
+                } mt-1`}>
+                  Pilih "Semua Lembaga" untuk membuat hari libur berlaku di seluruh lembaga,
+                  atau pilih lembaga tertentu untuk libur yang hanya berlaku di lembaga tersebut.
+                </p>
               </div>
 
               <div>
