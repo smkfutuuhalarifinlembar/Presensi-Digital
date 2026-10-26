@@ -121,10 +121,10 @@ export async function POST(req: Request) {
 
     if (existingDates.length > 0) {
       const dup = existingDates.map((d) => d.dateString).join(", ");
-      // Show error without institution-specific scope since it's a global conflict
+      const scope = institutionId ? "lembaga terpilih" : "semua lembaga";
       return NextResponse.json(
         {
-          error: `Tanggal ${dup} sudah terdaftar sebagai hari libur untuk semua lembaga.`,
+          error: `Tanggal ${dup} sudah terdaftar sebagai hari libur untuk ${scope}.`,
         },
         { status: 400 }
       );
