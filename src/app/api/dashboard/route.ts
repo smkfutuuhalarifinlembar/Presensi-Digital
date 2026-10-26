@@ -14,8 +14,9 @@ async function checkIsHoliday(dateString: string): Promise<{ isHoliday: boolean;
   }
 
   // Check if it's in the holidays table
-  const holiday = await prisma.holiday.findUnique({
+  const [holiday] = await prisma.holiday.findMany({
     where: { dateString, isActive: true },
+    take: 1,
   });
 
   if (holiday) {
