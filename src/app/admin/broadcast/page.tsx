@@ -730,12 +730,12 @@ export default function BroadcastPage() {
             </div>
             {preview.withoutPhone > 0 && (
               <p className={`mt-3 text-xs ${muted}`}>
-                {preview.withoutPhone} orang tidak memiliki nomor WhatsApp orang tua dan tidak akan dikirimi pesan.
+                {preview.withoutPhone} orang tidak memiliki nomor WhatsApp dan tidak akan dikirimi pesan.
               </p>
             )}
             {preview.withPhone === 0 && (
               <p className={`mt-3 text-xs text-rose-300`}>
-                Tidak ada sasaran dengan nomor WhatsApp. Periksa filter lembaga/peran.
+                Tidak ada sasaran dengan nomor WhatsApp. Periksa filter lembaga/peran/kelas, atau pastikan nomor WhatsApp (phone untuk guru/pegawai, parentPhone untuk siswa) sudah terisi.
               </p>
             )}
           </div>
