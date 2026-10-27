@@ -18,48 +18,97 @@ function getHighestPriorityRecord(records: any[]): any | null {
   });
 }
 
-// Get holidays + Sundays within a date range (untuk matriks bulanan & rentang)
-async function getHolidaysForRange(
+interface HolidayRangeData {
+  holidayList: { dateString: string; institutionId: string | null; name: string }[];
+  sundays: Set<string>;
+  isHolidayForPerson: (dateStr: string, personInstitutionId?: string | null) => boolean;
+  getApplicableHolidayDates: (filterInstitutionId?: string | null) => string[];
+}
+
+// Get holidays + Sundays within a date range with institution awareness
+async function getHolidaysRangeData(
   startDate: string,
-  endDate: string,
-  institutionId?: string | null
-): Promise<string[]> {
-  const where: any = {
-    isActive: true,
-    dateString: {
-      gte: startDate,
-      lte: endDate,
-    },
-  };
-
-  if (institutionId) {
-    where.OR = [
-      { institutionId },
-      { institutionId: null },
-    ];
-  }
-
-  // Get holidays from database
+  endDate: string
+): Promise<HolidayRangeData> {
   const holidays = await prisma.holiday.findMany({
-    where,
-    select: { dateString: true },
+    where: {
+      isActive: true,
+      dateString: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    select: {
+      dateString: true,
+      institutionId: true,
+      name: true,
+    },
   });
 
-  const holidayDates = new Set(holidays.map((h) => h.dateString));
-
-  // Add Sundays dalam rentang
+  const sundays = new Set<string>();
   const start = new Date(startDate + "T00:00:00");
   const end = new Date(endDate + "T00:00:00");
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
     if (d.getDay() === 0) {
-      holidayDates.add(`${y}-${m}-${day}`);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      sundays.add(`${y}-${m}-${day}`);
     }
   }
 
-  return Array.from(holidayDates);
+  const globalHolidays = new Set<string>();
+  const instHolidays = new Map<string, Set<string>>();
+
+  for (const h of holidays) {
+    if (!h.institutionId) {
+      globalHolidays.add(h.dateString);
+    } else {
+      let set = instHolidays.get(h.institutionId);
+      if (!set) {
+        set = new Set<string>();
+        instHolidays.set(h.institutionId, set);
+      }
+      set.add(h.dateString);
+    }
+  }
+
+  const isHolidayForPerson = (dateStr: string, personInstitutionId?: string | null): boolean => {
+    // 1. Hari Minggu: otomatis libur untuk semua orang
+    if (sundays.has(dateStr)) return true;
+    // 2. Libur Global (Semua Lembaga): libur untuk semua orang
+    if (globalHolidays.has(dateStr)) return true;
+    // 3. Libur Lembaga Spesifik: HANYA libur untuk orang yang terdaftar di lembaga tsb
+    if (personInstitutionId && instHolidays.get(personInstitutionId)?.has(dateStr)) {
+      return true;
+    }
+    return false;
+  };
+
+  const getApplicableHolidayDates = (filterInstitutionId?: string | null): string[] => {
+    const dates = new Set<string>(sundays);
+    for (const d of globalHolidays) {
+      dates.add(d);
+    }
+    if (filterInstitutionId && filterInstitutionId !== "ALL") {
+      const instSet = instHolidays.get(filterInstitutionId);
+      if (instSet) {
+        for (const d of instSet) dates.add(d);
+      }
+    } else {
+      for (const h of holidays) {
+        dates.add(h.dateString);
+      }
+    }
+    return Array.from(dates).sort();
+  };
+
+  return {
+    holidayList: holidays,
+    sundays,
+    isHolidayForPerson,
+    getApplicableHolidayDates,
+  };
 }
 
 export async function GET(req: Request) {
@@ -162,7 +211,7 @@ export async function GET(req: Request) {
       const year = start.getFullYear();
       const month = start.getMonth();
 
-      const [people, records, holidayDates] = await Promise.all([
+      const [people, records, holidayData] = await Promise.all([
         prisma.person.findMany({
           where: personWhere,
           orderBy: [{ role: "asc" }, { className: "asc" }, { name: "asc" }],
@@ -171,7 +220,7 @@ export async function GET(req: Request) {
           where,
           include: { activity: { select: { name: true, category: true } } },
         }),
-        getHolidaysForRange(startDate, endDate, institutionId),
+        getHolidaysRangeData(startDate, endDate),
       ]);
 
       // Tentukan daftar tanggal 01-31 dari bulan yang dipilih
@@ -181,7 +230,7 @@ export async function GET(req: Request) {
         const y = year;
         const m = String(month + 1).padStart(2, "0");
         const d = String(day).padStart(2, "0");
-        dates.push(`${y}-${m}-${d}`);
+        dates.push(`${y}-${m}-${day}`);
       }
 
       // Map: personId+date -> status code (jika multi-kegiatan dalam 1 hari, pilih yang paling representatif)
@@ -191,8 +240,8 @@ export async function GET(req: Request) {
       for (const p of people) {
         map[p.id] = {};
         for (const d of dates) {
-          if (holidayDates.includes(d)) {
-            // Mark holidays as "LIBUR" - tidak dihitung sebagai Alpa
+          if (holidayData.isHolidayForPerson(d, p.institutionId)) {
+            // Libur untuk orang ini (berdasarkan lembaga orang ini atau global)
             map[p.id][d] = "LIBUR";
           } else {
             // Default: tanpa data presensi = ALPA (Alpa)
@@ -246,7 +295,7 @@ export async function GET(req: Request) {
       return NextResponse.json({
         view: "monthly",
         dates,
-        holidays: holidayDates,
+        holidays: holidayData.getApplicableHolidayDates(institutionId),
         startDate,
         endDate,
         matrix,
@@ -272,7 +321,7 @@ export async function GET(req: Request) {
       const year = start.getFullYear();
       const month = start.getMonth();
 
-      const [people, records, holidayDates] = await Promise.all([
+      const [people, records, holidayData] = await Promise.all([
         prisma.person.findMany({
           where: personWhere,
           orderBy: [{ role: "asc" }, { className: "asc" }, { name: "asc" }],
@@ -281,7 +330,7 @@ export async function GET(req: Request) {
           where,
           include: { activity: { select: { name: true, category: true } } },
         }),
-        getHolidaysForRange(startDate, endDate, institutionId),
+        getHolidaysRangeData(startDate, endDate),
       ]);
 
       // Tentukan daftar tanggal dari startDate-endDate
@@ -301,7 +350,7 @@ export async function GET(req: Request) {
       for (const p of people) {
         map[p.id] = {};
         for (const d of dates) {
-          if (holidayDates.includes(d)) {
+          if (holidayData.isHolidayForPerson(d, p.institutionId)) {
             map[p.id][d] = "LIBUR";
           } else {
             map[p.id][d] = "ALPA";
@@ -352,6 +401,7 @@ export async function GET(req: Request) {
       return NextResponse.json({
         view: "matrix",
         dates,
+        holidays: holidayData.getApplicableHolidayDates(institutionId),
         startDate,
         endDate,
         matrix,

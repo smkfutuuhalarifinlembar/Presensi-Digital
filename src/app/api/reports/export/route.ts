@@ -20,6 +20,7 @@ export async function GET(req: Request) {
     const role = searchParams.get("role");
     const className = searchParams.get("className");
     const status = searchParams.get("status");
+    const institutionId = searchParams.get("institutionId");
 
     const where: any = {
       dateString: {
@@ -48,6 +49,7 @@ export async function GET(req: Request) {
     if (status && status !== "ALL") where.status = status;
     if (role && role !== "ALL") where.person = { ...where.person, role };
     if (className && className !== "ALL") where.person = { ...where.person, className };
+    if (institutionId && institutionId !== "ALL") where.person = { ...where.person, institutionId };
 
     const records = await prisma.attendanceRecord.findMany({
       where,

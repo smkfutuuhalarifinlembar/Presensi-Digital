@@ -157,12 +157,16 @@ export async function POST(req: Request) {
     const remarkText =
       remarks?.trim() || `Input manual oleh admin ${admin.name}`;
 
-    // Libur nasional tidak dicatat (di rekap sudah tampil sebagai "L")
+    // Libur (nasional/global atau lembaga terkait) tidak dicatat (di rekap tampil sebagai "LIBUR")
     const holidays = await prisma.holiday.findMany({
       where: { isActive: true, dateString: { in: dates } },
-      select: { dateString: true },
+      select: { dateString: true, institutionId: true },
     });
-    const holidaySet = new Set(holidays.map((h) => h.dateString));
+    const isHolidayForPerson = (day: string) => {
+      return holidays.some(
+        (h) => h.dateString === day && (!h.institutionId || h.institutionId === person.institutionId)
+      );
+    };
 
     const appliedDates: string[] = [];
     const skippedDates: string[] = [];
@@ -180,7 +184,7 @@ export async function POST(req: Request) {
 
       // Hari Minggu / libur: biarkan rekap menampilkannya sebagai Libur
       const dow = new Date(`${day}T00:00:00`).getDay();
-      if (dow === 0 || holidaySet.has(day)) {
+      if (dow === 0 || isHolidayForPerson(day)) {
         skippedDates.push(day);
         continue;
       }

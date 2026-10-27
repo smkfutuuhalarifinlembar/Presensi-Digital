@@ -24,6 +24,12 @@ import { getTodayDateString, formatDateIndo } from "@/lib/date-utils";
 
 type ViewMode = "list" | "matrix";
 
+interface Institution {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 // Util: format date menjadi YYYY-MM-DD menggunakan waktu LOKAL (bukan UTC)
 function formatLocalDate(d: Date): string {
   const y = d.getFullYear();
@@ -67,6 +73,8 @@ export default function ReportsPage() {
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [classFilter, setClassFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [institutionFilter, setInstitutionFilter] = useState<string>("ALL");
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Hitung startDate & endDate dari bulan yang dipilih (sesuai kalender)
@@ -118,6 +126,7 @@ export default function ReportsPage() {
         endDate,
         activityId,
         category,
+        institutionId: institutionFilter,
         role: roleFilter,
         className: classFilter,
         status: statusFilter,
@@ -182,10 +191,11 @@ export default function ReportsPage() {
   useEffect(() => {
     const loadFilters = async () => {
       try {
-        const [resAct, resPeople, resSettings] = await Promise.all([
+        const [resAct, resPeople, resSettings, resInst] = await Promise.all([
           fetch("/api/activities"),
           fetch("/api/people?limit=1"),
           fetch("/api/settings"),
+          fetch("/api/institutions?isActive=true"),
         ]);
         if (resAct.ok) {
           const j = await resAct.json();
@@ -194,6 +204,10 @@ export default function ReportsPage() {
         if (resPeople.ok) {
           const j = await resPeople.json();
           setClasses(j.classes || []);
+        }
+        if (resInst.ok) {
+          const j = await resInst.json();
+          setInstitutions(j.institutions || []);
         }
         if (resSettings.ok) {
           const j = await resSettings.json();
@@ -210,7 +224,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReports();
-  }, [startDate, endDate, activityId, category, roleFilter, classFilter, statusFilter, viewMode]);
+  }, [startDate, endDate, activityId, category, institutionFilter, roleFilter, classFilter, statusFilter, viewMode]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,7 +293,7 @@ export default function ReportsPage() {
 
           {/* Tombol Export Excel */}
           <a
-            href={`/api/reports/export?startDate=${startDate}&endDate=${endDate}&activityId=${activityId}&category=${category}&role=${roleFilter}&className=${classFilter}&status=${statusFilter}`}
+            href={`/api/reports/export?startDate=${startDate}&endDate=${endDate}&activityId=${activityId}&category=${category}&institutionId=${institutionFilter}&role=${roleFilter}&className=${classFilter}&status=${statusFilter}`}
             download
             className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition"
           >
@@ -329,6 +343,22 @@ export default function ReportsPage() {
 
         {/* Dropdown Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+          <div>
+            <label className="block text-slate-400 font-semibold mb-1">Lembaga</label>
+            <select
+              value={institutionFilter}
+              onChange={(e) => setInstitutionFilter(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500"
+            >
+              <option value="ALL">Semua Lembaga</option>
+              {institutions.map((inst) => (
+                <option key={inst.id} value={inst.id}>
+                  {inst.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block text-slate-400 font-semibold mb-1">Kategori Kegiatan</label>
             <select
@@ -727,10 +757,13 @@ function MatrixView({
               </th>
               {dates.map((d) => {
                 const day = parseInt(d.substring(8, 10), 10);
+                const isHolidayCol = matrix.holidays?.includes(d);
                 return (
                   <th
                     key={d}
-                    className="px-0.5 py-2 font-bold border border-slate-700 print:border-slate-300 text-center min-w-[22px]"
+                    className={`px-0.5 py-2 font-bold border border-slate-700 print:border-slate-300 text-center min-w-[22px] ${
+                      isHolidayCol ? "text-rose-400 bg-rose-950/40 print:bg-rose-100" : ""
+                    }`}
                     title={d}
                   >
                     {day}
