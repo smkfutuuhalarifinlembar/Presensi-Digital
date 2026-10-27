@@ -18,9 +18,18 @@ import {
   Plus,
   Trash2,
   Building2,
+  Volume2,
+  VolumeX,
+  Mic,
 } from "lucide-react";
+import {
+  testSpeakPresence,
+  TtsVoiceType,
+  getSelectedTtsVoiceName,
+} from "@/lib/sound-player";
 
 export default function SchoolSettingsPage() {
+  const [ttsVoiceType, setTtsVoiceType] = useState<TtsVoiceType>("laki-laki");
   const [settings, setSettings] = useState<any>({
     name: "SMK Negeri 1 Nusantara",
     npsn: "20214567",
@@ -756,6 +765,78 @@ export default function SchoolSettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Pengaturan Suara TTS (Admin Only) */}
+        <div className="mt-8 bg-slate-900/50 border border-slate-700 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Mic className="w-5 h-5 text-blue-400" />
+            <h3 className="text-sm font-semibold text-slate-200">Pengaturan Suara TTS (Admin)</h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-2">
+                Jenis Suara Default
+              </label>
+              <select
+                value={ttsVoiceType}
+                onChange={(e) =>
+                  setTtsVoiceType(e.target.value as TtsVoiceType)
+                }
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="laki-laki">Laki-laki (Andika)</option>
+                <option value="perempuan">Perempuan (Riska)</option>
+              </select>
+              <p className="text-[10px] text-slate-500 mt-1">
+                Suara yang akan digunakan saat pengumuman presensi di kiosk.
+              </p>
+              <p className="text-[10px] text-blue-400 mt-1">
+                Suara aktif: {getSelectedTtsVoiceName(ttsVoiceType)}
+              </p>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => testSpeakPresence(ttsVoiceType)}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>Test Suara Pilihan</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => testSpeakPresence()}
+              className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl text-sm transition"
+            >
+              Test Default
+            </button>
+            <button
+              type="button"
+              onClick={() => testSpeakPresence("laki-laki")}
+              className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl text-sm transition"
+            >
+              Test Laki-laki
+            </button>
+            <button
+              type="button"
+              onClick={() => testSpeakPresence("perempuan")}
+              className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl text-sm transition"
+            >
+              Test Perempuan
+            </button>
+          </div>
+
+          <p className="mt-3 text-[10px] text-slate-500">
+            Fitur TTS ini hanya untuk verifikasi suara di panel admin. Suara
+            akan keluar dari browser/client yang sedang digunakan, bukan dari
+            server.
+          </p>
         </div>
 
         {/* Tombol Simpan */}

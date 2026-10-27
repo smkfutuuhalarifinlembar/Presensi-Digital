@@ -136,18 +136,49 @@ function pickVoiceByGender(voiceType?: TtsVoiceType): SpeechSynthesisVoice | und
   if (idVoices.length === 0) return undefined;
 
   if (voiceType === "laki-laki") {
-    return idVoices.find((v) => v.name.toLowerCase().includes("andika")) || idVoices[0];
+    return (
+      idVoices.find((v) => v.name.toLowerCase().includes("andika")) ||
+      idVoices.find((v) => v.name.toLowerCase().includes("male")) ||
+      idVoices.find((v) => v.name.toLowerCase().includes("laki")) ||
+      idVoices[0]
+    );
   }
   if (voiceType === "perempuan") {
-    return idVoices.find((v) => v.name.toLowerCase().includes("riska")) || idVoices[0];
+    return (
+      idVoices.find((v) => v.name.toLowerCase().includes("riska")) ||
+      idVoices.find((v) => v.name.toLowerCase().includes("female")) ||
+      idVoices.find((v) => v.name.toLowerCase().includes("cewek")) ||
+      idVoices.find((v) => v.name.toLowerCase().includes("wanita")) ||
+      idVoices[0]
+    );
   }
 
   // Default (tanpa preferensi): cewek dulu, lalu cowok, lalu pertama yang ada
   return (
     idVoices.find((v) => v.name.toLowerCase().includes("riska")) ||
+    idVoices.find((v) => v.name.toLowerCase().includes("female")) ||
     idVoices.find((v) => v.name.toLowerCase().includes("andika")) ||
+    idVoices.find((v) => v.name.toLowerCase().includes("male")) ||
     idVoices[0]
   );
+}
+
+/**
+ * Ambil nama suara TTS yang akan digunakan untuk ditampilkan di UI admin.
+ */
+export function getSelectedTtsVoiceName(voiceType?: TtsVoiceType): string {
+  const voice = pickVoiceByGender(voiceType);
+  return voice ? voice.name : "(browser default)";
+}
+
+/**
+ * Pengaturan pitch (ketebalan nada) berdasarkan gender agar terdengar berbeda
+ * meskipun sistem hanya menyediakan satu suara Indonesia.
+ */
+export function getTtsPitch(voiceType?: TtsVoiceType): number {
+  if (voiceType === "laki-laki") return 0.92;
+  if (voiceType === "perempuan") return 1.08;
+  return 1.0;
 }
 
 /**
@@ -192,7 +223,7 @@ export function speakPresence(
     }
     utterance.lang = "id-ID";
     utterance.rate = 1.05;
-    utterance.pitch = 1.0;
+    utterance.pitch = getTtsPitch(voiceType);
 
     window.speechSynthesis.speak(utterance);
   } catch (err) {

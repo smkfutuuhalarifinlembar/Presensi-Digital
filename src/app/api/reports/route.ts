@@ -19,16 +19,29 @@ function getHighestPriorityRecord(records: any[]): any | null {
 }
 
 // Get holidays + Sundays within a date range (untuk matriks bulanan & rentang)
-async function getHolidaysForRange(startDate: string, endDate: string): Promise<string[]> {
+async function getHolidaysForRange(
+  startDate: string,
+  endDate: string,
+  institutionId?: string | null
+): Promise<string[]> {
+  const where: any = {
+    isActive: true,
+    dateString: {
+      gte: startDate,
+      lte: endDate,
+    },
+  };
+
+  if (institutionId) {
+    where.OR = [
+      { institutionId },
+      { institutionId: null },
+    ];
+  }
+
   // Get holidays from database
   const holidays = await prisma.holiday.findMany({
-    where: {
-      isActive: true,
-      dateString: {
-        gte: startDate,
-        lte: endDate,
-      },
-    },
+    where,
     select: { dateString: true },
   });
 
@@ -66,6 +79,7 @@ export async function GET(req: Request) {
     const className = searchParams.get("className");
     const status = searchParams.get("status");
     const search = searchParams.get("search")?.trim();
+    const institutionId = searchParams.get("institutionId");
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.max(1, Math.min(200, parseInt(searchParams.get("limit") || "50")));
     const view = (searchParams.get("view") || "list").toLowerCase(); // list | matrix | monthly
@@ -116,6 +130,10 @@ export async function GET(req: Request) {
       where.person = { ...where.person, className };
     }
 
+    if (institutionId && institutionId !== "ALL") {
+      where.person = { ...where.person, institutionId };
+    }
+
     if (search) {
       where.person = {
         ...where.person,
@@ -130,6 +148,7 @@ export async function GET(req: Request) {
     if (view === "monthly") {
       // Ambil semua orang yang cocok filter (sebagai basis baris)
       const personWhere: any = { isActive: true };
+      if (institutionId && institutionId !== "ALL") personWhere.institutionId = institutionId;
       if (role && role !== "ALL") personWhere.role = role;
       if (className && className !== "ALL") personWhere.className = className;
       if (search) {
@@ -152,7 +171,7 @@ export async function GET(req: Request) {
           where,
           include: { activity: { select: { name: true, category: true } } },
         }),
-        getHolidaysForRange(startDate, endDate),
+        getHolidaysForRange(startDate, endDate, institutionId),
       ]);
 
       // Tentukan daftar tanggal 01-31 dari bulan yang dipilih
@@ -239,6 +258,7 @@ export async function GET(req: Request) {
     if (view === "matrix") {
       // Ambil semua orang yang cocok filter (sebagai basis baris)
       const personWhere: any = { isActive: true };
+      if (institutionId && institutionId !== "ALL") personWhere.institutionId = institutionId;
       if (role && role !== "ALL") personWhere.role = role;
       if (className && className !== "ALL") personWhere.className = className;
       if (search) {
@@ -261,7 +281,7 @@ export async function GET(req: Request) {
           where,
           include: { activity: { select: { name: true, category: true } } },
         }),
-        getHolidaysForRange(startDate, endDate),
+        getHolidaysForRange(startDate, endDate, institutionId),
       ]);
 
       // Tentukan daftar tanggal dari startDate-endDate

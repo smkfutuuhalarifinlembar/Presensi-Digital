@@ -30,6 +30,7 @@ model Institution {
   updatedAt DateTime @updatedAt
   people    Person[]
   activities Activity[]
+  holidays  Holiday[]
 }
 
 model Person {
@@ -180,14 +181,19 @@ model SchoolSetting {
 }
 
 model Holiday {
-  id          String   @id @default(cuid())
-  dateString  String   @unique
-  name        String
-  type        String   @default("NATIONAL")
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String      @id @default(cuid())
+  dateString    String
+  name          String
+  type          String      @default("NATIONAL")
+  description   String?
+  isActive      Boolean     @default(true)
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // @@unique([dateString, institutionId]) - handled as partial unique index in migration
+  @@index([dateString, isActive])
 }
 
 model WaGatewayConfig {

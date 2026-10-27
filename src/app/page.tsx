@@ -26,7 +26,6 @@ import {
   playWarningChime,
   playErrorBuzz,
   speakPresence,
-  testSpeakPresence,
   triggerSuccessConfetti,
 } from "@/lib/sound-player";
 
@@ -480,8 +479,8 @@ export default function KioskPage() {
         {/* Footer Kiosk - lebih compact */}
         <footer className="w-full shrink-0 bg-slate-950/90 border-t border-slate-800/80 px-3 sm:px-6 py-2 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 z-20">
           <div className="flex items-center gap-3 sm:gap-4">
-            <span>© {new Date().getFullYear()} {school.name}</span>
-            <span>•</span>
+            <span>Hak Cipta {new Date().getFullYear()} {school.name}</span>
+            <span>-</span>
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -501,36 +500,7 @@ export default function KioskPage() {
             )}
           </button>
 
-          {/* Tombol Test TTS (hanya untuk verifikasi suara sebelum produksi) */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => testSpeakPresence()}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700 transition"
-              title="Test suara TTS (default)"
-            >
-              <Volume2 className="w-3 h-3" />
-              <span>Test TTS</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => testSpeakPresence("laki-laki")}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700 transition"
-              title="Test suara TTS laki-laki"
-            >
-              <span className="text-xs">♂</span>
-              <span>Laki</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => testSpeakPresence("perempuan")}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700 transition"
-              title="Test suara TTS perempuan"
-            >
-              <span className="text-xs">♀</span>
-              <span>Perem</span>
-            </button>
-          </div>
+
         </div>
 
         {/* Akses Login Khusus Admin */}

@@ -171,7 +171,7 @@ export default function AdminLayout({
       label: "Hari Libur",
       href: "/admin/holidays",
       icon: Calendar,
-      roles: ["SUPER_ADMIN"],
+      roles: ["SUPER_ADMIN", "ADMIN_OPERATOR"],
     },
     {
       label: "Backup & Restore Data",
