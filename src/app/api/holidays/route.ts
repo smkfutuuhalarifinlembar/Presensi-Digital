@@ -145,7 +145,7 @@ export async function POST(req: Request) {
               institutionId: null,
             }),
       },
-      select: { dateString: true, name: true },
+      select: { dateString: true, name: true, institutionId: true },
     });
 
     const existingDateSet = new Set(existingHolidays.map((h) => h.dateString));
@@ -153,7 +153,12 @@ export async function POST(req: Request) {
     // For single date creation: return error if already exists
     if (datesToCreate.length === 1 && existingHolidays.length > 0) {
       const existing = existingHolidays[0];
-      const scopeName = targetInstitutionId ? "lembaga terpilih" : "semua lembaga";
+      const scopeName =
+        targetInstitutionId && existing.institutionId === targetInstitutionId
+          ? "lembaga terpilih"
+          : targetInstitutionId
+            ? "semua lembaga (global)"
+            : "semua lembaga";
       return NextResponse.json(
         {
           error: `Tanggal ${existing.dateString} sudah terdaftar sebagai libur "${existing.name}" untuk ${scopeName}.`,
@@ -281,11 +286,14 @@ export async function PUT(req: Request) {
         isActive: true,
         ...(targetInstitutionId
           ? {
-              institutionId: targetInstitutionId,
+              OR: [
+                { institutionId: targetInstitutionId },
+                { institutionId: null },
+              ],
             }
           : {
-              institutionId: null,
-            }),
+            institutionId: null,
+          }),
       },
     });
 

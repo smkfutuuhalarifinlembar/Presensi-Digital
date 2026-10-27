@@ -28,7 +28,8 @@ import {
   Moon,
   Calendar,
   Building2,
-  BellRing,
+   BellRing,
+  Send,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -135,6 +136,12 @@ export default function AdminLayout({
       label: "Riwayat Notifikasi",
       href: "/admin/notification-logs",
       icon: BellRing,
+      roles: ["SUPER_ADMIN", "ADMIN_OPERATOR"],
+    },
+    {
+      label: "Broadcast Notif WA",
+      href: "/admin/broadcast",
+      icon: Send,
       roles: ["SUPER_ADMIN", "ADMIN_OPERATOR"],
     },
     {

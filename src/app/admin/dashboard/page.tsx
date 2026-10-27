@@ -10,7 +10,8 @@ import {
   HeartPulse,
   XCircle,
   Calendar,
-  Radio,
+   Radio,
+   Send,
   CreditCard,
   Edit3,
   FileSpreadsheet,
@@ -477,6 +478,7 @@ export default function AdminDashboardPage() {
             { href: "/admin/id-card", icon: CreditCard, color: "emerald", label: "Cetak ID Card (KTP Ukuran A4)" },
             { href: "/admin/reports", icon: FileSpreadsheet, color: "purple", label: "Export Laporan ke Excel & PDF" },
             { href: "/admin/wa-gateway", icon: Radio, color: "amber", label: "Konfigurasi WhatsApp Gateway" },
+            { href: "/admin/broadcast", icon: Send, color: "blue", label: "Broadcast Notifikasi ke Orang Tua" },
           ].map((item) => {
             const Icon = item.icon;
             return (

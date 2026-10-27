@@ -28,8 +28,9 @@ model Institution {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  people    Person[]
-  activities Activity[]
+   people    Person[]
+   broadcastBatches BroadcastBatch[]
+   activities Activity[]
   holidays  Holiday[]
 }
 
@@ -48,11 +49,12 @@ model Person {
   gender        String?            @default("L")
   isActive      Boolean            @default(true)
   institutionId String?
-  institution   Institution?       @relation(fields: [institutionId], references: [id], onDelete: SetNull)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  attendances   AttendanceRecord[]
-  leaveRequests LeaveRequest[]
+   institution   Institution?       @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+   broadcastMessages BroadcastMessage[]
+   createdAt     DateTime           @default(now())
+   updatedAt     DateTime           @updatedAt
+   attendances   AttendanceRecord[]
+   leaveRequests LeaveRequest[]
 }
 
 model Activity {
@@ -306,4 +308,58 @@ model AuditLog {
   ipAddress String?
   timestamp DateTime @default(now())
   admin     Admin?   @relation(fields: [adminId], references: [id])
+}
+
+model BroadcastBatch {
+  id               String              @id @default(cuid())
+  scope            String              @default("ALL")
+  institutionId    String?
+  institution      Institution?        @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institutionName  String?
+  institutionCode  String?
+   targetRole          String?             @default("SISWA")
+   selectedClassesJson String?
+   message             String
+  delaySeconds     Int                 @default(2)
+  totalTargets     Int                 @default(0)
+  withPhoneCount   Int                 @default(0)
+  sentCount        Int                 @default(0)
+  failedCount      Int                 @default(0)
+  skippedCount     Int                 @default(0)
+  status           String              @default("PENDING")
+  createdByAdminId String?
+  createdByName    String?
+  createdAt        DateTime            @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  updatedAt        DateTime            @updatedAt
+  messages         BroadcastMessage[]
+}
+
+model BroadcastMessage {
+  id             String           @id @default(cuid())
+  batchId        String
+  batch          BroadcastBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  personId       String?
+  person         Person?          @relation(fields: [personId], references: [id], onDelete: SetNull)
+  personName     String?
+  nisNip         String?
+  className      String?
+  targetPhone    String?
+  messageContent String
+  provider       String?
+  status         String           @default("PENDING")
+  deliveryMessage String?
+  errorMessage    String?
+  attempt         Int              @default(1)
+  retryOfId       String?
+  retryOf         BroadcastMessage? @relation("BroadcastRetry", fields: [retryOfId], references: [id])
+  retries         BroadcastMessage[] @relation("BroadcastRetry")
+  sentAt          DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([batchId])
+  @@index([status])
+  @@index([targetPhone])
 }
