@@ -16,9 +16,12 @@ import {
   Tag,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import { useToast } from "@/context/ToastContext";
+import { confirmDialog } from "@/components/ConfirmDialog";
 
 export default function ActivitiesPage() {
   const { theme } = useTheme();
+  const { toast } = useToast();
   const [activities, setActivities] = useState<any[]>([]);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
@@ -34,8 +37,8 @@ export default function ActivitiesPage() {
   // Form kategori
   const [categoryFormData, setCategoryFormData] = useState({ name: "" });
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [isSavingCategory, setIsSavingCategory] = useState<boolean>(false);
+   const [categoryError, setCategoryError] = useState<string | null>(null);
+   const [isSavingCategory, setIsSavingCategory] = useState<boolean>(false);
 
   // Form
   const [formData, setFormData] = useState({
@@ -251,13 +254,12 @@ export default function ActivitiesPage() {
     }
   };
 
-  const handleCategorySubmit = async (e: React.FormEvent) => {
+   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = categoryFormData.name.trim();
     if (!name) return;
 
     setIsSavingCategory(true);
-    setCategoryError(null);
     try {
       const url = editingCategory
         ? `/api/activity-categories/${editingCategory.id}`
@@ -272,7 +274,7 @@ export default function ActivitiesPage() {
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setCategoryError(json.error || "Gagal menyimpan kategori.");
+        toast(json.error || "Gagal menyimpan kategori.", "error");
         return;
       }
 
@@ -280,31 +282,36 @@ export default function ActivitiesPage() {
       setEditingCategory(null);
       await fetchActivities();
     } catch {
-      setCategoryError("Gagal menyimpan kategori.");
+      toast("Gagal menyimpan kategori.", "error");
     } finally {
       setIsSavingCategory(false);
     }
   };
 
-  const handleDeleteCategory = async (cat: any) => {
+   const handleDeleteCategory = async (cat: any) => {
     const affected = activities.filter((a) => (a.category || "UMUM") === cat.name).length;
     const msg =
       affected > 0
         ? `Hapus kategori "${cat.name}"? ${affected} kegiatan akan dipindahkan ke kategori "UMUM".`
         : `Hapus kategori "${cat.name}"?`;
-    if (!window.confirm(msg)) return;
+    const result = await confirmDialog.confirm({
+      title: "Hapus Kategori",
+      message: msg,
+      variant: "danger",
+      confirmLabel: "Hapus",
+    });
+    if (!result.confirmed) return;
 
-    setCategoryError(null);
     try {
       const res = await fetch(`/api/activity-categories/${cat.id}`, { method: "DELETE" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setCategoryError(json.error || "Gagal menghapus kategori.");
+        toast(json.error || "Gagal menghapus kategori.", "error");
         return;
       }
       await fetchActivities();
     } catch {
-      setCategoryError("Gagal menghapus kategori.");
+      toast("Gagal menghapus kategori.", "error");
     }
   };
 

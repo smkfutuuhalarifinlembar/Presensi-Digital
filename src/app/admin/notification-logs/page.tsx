@@ -19,6 +19,8 @@ import {
 import { formatDateIndo } from "@/lib/date-utils";
 import { useTheme } from "@/context/ThemeContext";
 import { getWaGatewaySnapshot, getWaProviderLabel } from "@/lib/wa-provider";
+import { confirmDialog } from "@/components/ConfirmDialog";
+import { useToast } from "@/context/ToastContext";
 
 const STATUS_OPTIONS = [
   { value: "ALL", label: "Semua status" },
@@ -54,6 +56,7 @@ function sourceLabel(source: string) {
 export default function NotificationLogsPage() {
   const { theme } = useTheme();
   const dark = theme === "dark";
+  const { toast } = useToast();
   const [logs, setLogs] = useState<any[]>([]);
   const [summary, setSummary] = useState({ total: 0, sent: 0, failed: 0, pending: 0 });
   const [activeGateway, setActiveGateway] = useState(getWaGatewaySnapshot(null));
@@ -68,7 +71,6 @@ export default function NotificationLogsPage() {
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [retryingAll, setRetryingAll] = useState(false);
-  const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [cleanupSetting, setCleanupSetting] = useState<any>({
     autoDeleteEnabled: false,
@@ -103,8 +105,8 @@ export default function NotificationLogsPage() {
       setActiveGateway(json.activeGateway || getWaGatewaySnapshot(null));
       setTotal(json.total || 0);
       setTotalPages(json.totalPages || 1);
-    } catch (error: any) {
-      setActionMessage({ type: "error", text: error?.message || "Gagal memuat riwayat notifikasi." });
+    }    catch (error: any) {
+      toast(error?.message || "Gagal memuat riwayat notifikasi.", "error");
     } finally {
       setLoading(false);
     }
@@ -139,13 +141,12 @@ export default function NotificationLogsPage() {
       setCleanupCount(json.currentCount || 0);
       setCanManageCleanup(Boolean(json.canManage));
     } catch (error: any) {
-      setActionMessage({ type: "error", text: error?.message || "Gagal memuat pengaturan hapus riwayat." });
+      toast(error?.message || "Gagal memuat pengaturan hapus riwayat.", "error");
     }
   };
 
   const saveCleanupSettings = async () => {
     setSavingCleanup(true);
-    setActionMessage(null);
     try {
       const res = await fetch("/api/notification-log-settings", {
         method: "PUT",
@@ -158,19 +159,24 @@ export default function NotificationLogsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal menyimpan pengaturan.");
       setCleanupSetting(json.setting);
-      setActionMessage({ type: "success", text: "Pengaturan hapus otomatis berhasil disimpan." });
+      toast("Pengaturan hapus otomatis berhasil disimpan.", "success");
       await loadCleanupSettings();
     } catch (error: any) {
-      setActionMessage({ type: "error", text: error?.message || "Gagal menyimpan pengaturan." });
+      toast(error?.message || "Gagal menyimpan pengaturan.", "error");
     } finally {
       setSavingCleanup(false);
     }
   };
 
   const deleteAllNotificationLogs = async () => {
-    if (!window.confirm(`Hapus semua ${cleanupCount} riwayat notifikasi secara permanen? Tindakan ini tidak dapat dibatalkan.`)) return;
+    const result = await confirmDialog.confirm({
+      title: "Hapus Semua Riwayat",
+      message: `Hapus semua ${cleanupCount} riwayat notifikasi secara permanen? Tindakan ini tidak dapat dibatalkan.`,
+      variant: "danger",
+      confirmLabel: "Hapus Semua",
+    });
+    if (!result.confirmed) return;
     setDeletingAllLogs(true);
-    setActionMessage(null);
     try {
       const res = await fetch("/api/notification-logs", { method: "DELETE" });
       const json = await res.json();
@@ -180,10 +186,10 @@ export default function NotificationLogsPage() {
       setTotal(0);
       setTotalPages(1);
       setPage(1);
-      setActionMessage({ type: "success", text: json.message || "Riwayat notifikasi berhasil dihapus." });
+      toast(json.message || "Riwayat notifikasi berhasil dihapus.", "success");
       await loadCleanupSettings();
     } catch (error: any) {
-      setActionMessage({ type: "error", text: error?.message || "Gagal menghapus riwayat." });
+      toast(error?.message || "Gagal menghapus riwayat.", "error");
     } finally {
       setDeletingAllLogs(false);
     }
@@ -191,37 +197,47 @@ export default function NotificationLogsPage() {
 
   const retryAllFailed = async () => {
     if (summary.failed === 0) {
-      setActionMessage({ type: "success", text: "Tidak ada notifikasi gagal yang perlu dikirim ulang." });
+      toast("Tidak ada notifikasi gagal yang perlu dikirim ulang.", "success");
       return;
     }
-    if (!window.confirm(`Kirim ulang ${summary.failed} notifikasi yang gagal? Proses dilakukan berurutan dan bisa memakan waktu.`)) return;
+    const result = await confirmDialog.confirm({
+      title: "Kirim Ulang Notifikasi Gagal",
+      message: `Kirim ulang ${summary.failed} notifikasi yang gagal? Proses dilakukan berurutan dan bisa memakan waktu.`,
+      variant: "warning",
+      confirmLabel: "Kirim Ulang",
+    });
+    if (!result.confirmed) return;
     setRetryingAll(true);
-    setActionMessage(null);
     try {
       const res = await fetch(`/api/notification-logs/retry-failed`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal mengirim ulang notifikasi gagal.");
-      setActionMessage({ type: json.success ? "success" : "error", text: json.message });
+      toast(json.message, json.success ? "success" : "error");
       await loadLogs();
     } catch (error: any) {
-      setActionMessage({ type: "error", text: error?.message || "Gagal mengirim ulang notifikasi gagal." });
+      toast(error?.message || "Gagal mengirim ulang notifikasi gagal.", "error");
     } finally {
       setRetryingAll(false);
     }
   };
 
   const retry = async (log: any) => {
-    if (!window.confirm(`Kirim ulang notifikasi WhatsApp untuk ${log.attendance.person.name}?`)) return;
+    const result = await confirmDialog.confirm({
+      title: "Kirim Ulang Notifikasi",
+      message: `Kirim ulang notifikasi WhatsApp untuk ${log.attendance.person.name}?`,
+      variant: "warning",
+      confirmLabel: "Kirim",
+    });
+    if (!result.confirmed) return;
     setRetryingId(log.id);
-    setActionMessage(null);
     try {
       const res = await fetch(`/api/notification-logs/${log.id}/retry`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal mengirim ulang notifikasi.");
-      setActionMessage({ type: json.success ? "success" : "error", text: json.message });
+      toast(json.message, json.success ? "success" : "error");
       await loadLogs();
     } catch (error: any) {
-      setActionMessage({ type: "error", text: error?.message || "Gagal mengirim ulang notifikasi." });
+      toast(error?.message || "Gagal mengirim ulang notifikasi.", "error");
     } finally {
       setRetryingId(null);
     }
@@ -368,13 +384,7 @@ export default function NotificationLogsPage() {
         </div>
       </div>
 
-      {actionMessage && (
-        <div className={`rounded-xl border px-4 py-3 text-sm font-semibold ${actionMessage.type === "success" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-rose-500/30 bg-rose-500/10 text-rose-300"}`}>
-          {actionMessage.text}
-        </div>
-      )}
-
-      <div className={`rounded-3xl border overflow-hidden shadow-xl ${card}`}>
+       <div className={`rounded-3xl border overflow-hidden shadow-xl ${card}`}>
         {loading ? (
           <div className={`p-12 text-center ${muted}`}><RefreshCw className="w-7 h-7 mx-auto mb-3 animate-spin text-blue-500" />Memuat riwayat...</div>
         ) : logs.length === 0 ? (

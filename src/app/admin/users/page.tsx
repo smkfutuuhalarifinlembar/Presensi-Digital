@@ -12,10 +12,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Lock,
-  KeyRound,
+   KeyRound,
 } from "lucide-react";
+import { useToast } from "@/context/ToastContext";
 
 export default function UsersManagementPage() {
+  const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [currentAdmin, setCurrentAdmin] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -108,7 +110,7 @@ export default function UsersManagementPage() {
       setDeleteUser(null);
       load();
     } catch (e: any) {
-      alert(e.message);
+      toast(e.message, "error");
     }
   };
 

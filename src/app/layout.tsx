@@ -1,6 +1,8 @@
 ﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { ToastProvider } from "@/context/ToastContext";
+import { ConfirmDialogProvider } from "@/components/ConfirmDialog";
 
 export const metadata: Metadata = {
   title: "Sistem Presensi Digital Sekolah",
@@ -22,7 +24,11 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className="antialiased selection:bg-blue-500 selection:text-white">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

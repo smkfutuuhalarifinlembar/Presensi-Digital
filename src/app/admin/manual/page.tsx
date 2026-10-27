@@ -7,16 +7,17 @@ import {
   User,
   Calendar,
   Clock,
-  CheckCircle2,
-  AlertCircle,
   MessageSquare,
   ShieldCheck,
   Send,
   Users,
 } from "lucide-react";
 import { getTodayDateString, formatDateIndo } from "@/lib/date-utils";
+import { confirmDialog } from "@/components/ConfirmDialog";
+import { useToast } from "@/context/ToastContext";
 
 export default function ManualAttendancePage() {
+  const { toast } = useToast();
   const [activities, setActivities] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -32,7 +33,6 @@ export default function ManualAttendancePage() {
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [bulkPeople, setBulkPeople] = useState<any[]>([]);
   const [bulkLoading, setBulkLoading] = useState<boolean>(false);
-  const [bulkMessage, setBulkMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Form State
   const [status, setStatus] = useState<string>("HADIR");
@@ -51,7 +51,6 @@ export default function ManualAttendancePage() {
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSearching, setIsSearching] = useState<boolean>(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Fetch institutions for bulk attendance
   useEffect(() => {
@@ -113,15 +112,13 @@ export default function ManualAttendancePage() {
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bulkSelectedActivityId) {
-      setBulkMessage({ type: "error", text: "Pilih kegiatan presensi." });
+      toast("Pilih kegiatan presensi.", "error");
       return;
     }
 
     setBulkLoading(true);
-    setBulkMessage(null);
 
     try {
-      // Fetch people based on filters
       const params = new URLSearchParams();
       if (bulkInstitutionId) params.append("institutionId", bulkInstitutionId);
       if (bulkClassName) params.append("className", bulkClassName);
@@ -131,31 +128,27 @@ export default function ManualAttendancePage() {
         const json = await res.json();
         setBulkPeople(json.people || []);
       } else {
-        setBulkMessage({ type: "error", text: "Gagal memuat data orang." });
+        toast("Gagal memuat data orang.", "error");
         return;
       }
     } catch (err) {
-      setBulkMessage({ type: "error", text: "Terjadi kesalahan saat memuat data orang." });
+      toast("Terjadi kesalahan saat memuat data orang.", "error");
       return;
     }
 
     if (bulkPeople.length === 0) {
-      setBulkMessage({ type: "error", text: "Tidak ada orang yang memenuhi filter." });
+      toast("Tidak ada orang yang memenuhi filter.", "error");
       return;
     }
 
-    // Confirm with user
-    const confirm = window.confirm(`
-      Anda akan mencatat presensi ${bulkPeople.length} orang:
-      ${bulkPeople.map((p: any) => p.name).join(", ")}
-      
-      Status: ${bulkStatus}
-      Tanggal: ${bulkDateString}
-      Keterangan: "${bulkRemarks || "-"}"
-      
-      Apakah Anda yakin?`);
-    
-    if (!confirm) return;
+     // Confirm with user
+    const result = await confirmDialog.confirm({
+      title: "Konfirmasi Presensi Masal",
+      message: `Anda akan mencatat presensi ${bulkPeople.length} orang. Status: ${bulkStatus}. Tanggal: ${bulkDateString}. Klik konfirmasi untuk melanjutkan.`,
+      variant: "warning",
+      confirmLabel: "Simpan",
+    });
+    if (!result.confirmed) return;
 
     // Submit bulk attendance
     try {
@@ -175,25 +168,15 @@ export default function ManualAttendancePage() {
 
       const json = await res.json();
       if (res.ok && json.success) {
-        setBulkMessage({
-          type: "success",
-          text: json.message || `Presensi masal ${bulkPeople.length} orang berhasil disimpan (${bulkStatus}).`,
-        });
-        // Reset bulk form
+        toast(json.message || `Presensi masal ${bulkPeople.length} orang berhasil disimpan (${bulkStatus}).`, "success");
         setBulkPeople([]);
         setBulkInstitutionId("");
         setBulkClassName("");
       } else {
-        setBulkMessage({
-          type: "error",
-          text: json.error || "Gagal menyimpan presensi masal.",
-        });
+        toast(json.error || "Gagal menyimpan presensi masal.", "error");
       }
     } catch (err: any) {
-      setBulkMessage({
-        type: "error",
-        text: "Terjadi kesalahan koneksi saat menyimpan.",
-      });
+      toast("Terjadi kesalahan koneksi saat menyimpan.", "error");
     } finally {
       setBulkLoading(false);
     }
@@ -202,25 +185,21 @@ export default function ManualAttendancePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPerson) {
-      setMessage({ type: "error", text: "Silakan pilih orang yang akan diabsenkan." });
+      toast("Silakan pilih orang yang akan diabsenkan.", "error");
       return;
     }
 
-    if (!dateString) {
-      setMessage({ type: "error", text: "Pilih tanggal mulai presensi." });
+     if (!dateString) {
+      toast("Pilih tanggal mulai presensi.", "error");
       return;
     }
 
     if (endDateString && endDateString < dateString) {
-      setMessage({
-        type: "error",
-        text: "Tanggal selesai tidak boleh lebih awal dari tanggal mulai.",
-      });
+      toast("Tanggal selesai tidak boleh lebih awal dari tanggal mulai.", "error");
       return;
     }
 
     setIsLoading(true);
-    setMessage(null);
 
     try {
       const res = await fetch("/api/manual-attendance", {
@@ -237,25 +216,15 @@ export default function ManualAttendancePage() {
 
       const json = await res.json();
       if (res.ok && json.success) {
-        setMessage({
-          type: "success",
-          text: json.message || "Presensi manual berhasil dicatat.",
-        });
-        // Reset pilihan
+        toast(json.message || "Presensi manual berhasil dicatat.", "success");
         setSelectedPerson(null);
         setSearchQuery("");
         setRemarks("");
       } else {
-        setMessage({
-          type: "error",
-          text: json.error || "Gagal menyimpan presensi manual.",
-        });
+        toast(json.error || "Gagal menyimpan presensi manual.", "error");
       }
     } catch (err: any) {
-      setMessage({
-        type: "error",
-        text: "Terjadi kesalahan koneksi saat menyimpan.",
-      });
+      toast("Terjadi kesalahan koneksi saat menyimpan.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -271,44 +240,10 @@ export default function ManualAttendancePage() {
         <p className="text-sm text-slate-400 mt-1">
           Khusus admin untuk mencatatkan kehadiran siswa/guru yang tidak membawa kartu RFID atau berhalangan hadir (Sakit/Izin/Dinas Luar).
         </p>
-      </div>
+        </div>
 
-       {/* Alert Notifikasi Pesan */}
-       {message && (
-         <div
-           className={`p-4 rounded-2xl border text-xs sm:text-sm flex items-center gap-3 animate-in fade-in duration-200 ${message.type === "success"
-               ? "bg-emerald-950/80 border-emerald-500/60 text-emerald-200"
-               : "bg-rose-950/80 border-rose-500/60 text-rose-200"
-             }`}
-         >
-           {message.type === "success" ? (
-             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-           ) : (
-             <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-           )}
-           <span>{message.text}</span>
-         </div>
-       )}
-
-       {/* Alert Notifikasi Pesan Bulk */}
-       {bulkMessage && (
-         <div
-           className={`p-4 rounded-2xl border text-xs sm:text-sm flex items-center gap-3 animate-in fade-in duration-200 ${bulkMessage.type === "success"
-               ? "bg-emerald-950/80 border-emerald-500/60 text-emerald-200"
-               : "bg-rose-950/80 border-rose-500/60 text-rose-200"
-             }`}
-         >
-           {bulkMessage.type === "success" ? (
-             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-           ) : (
-             <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-           )}
-           <span>{bulkMessage.text}</span>
-         </div>
-       )}
-
-       {/* Bulk People Preview */}
-       {bulkPeople.length > 0 && (
+        {/* Bulk People Preview */}
+        {bulkPeople.length > 0 && (
          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-lg mt-4">
            <div className="flex items-center justify-between mb-3">
              <h3 className="text-sm font-bold text-white flex items-center gap-2">

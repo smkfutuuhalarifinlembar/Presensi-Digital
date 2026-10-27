@@ -12,20 +12,20 @@ import {
   Clock,
   FileDown,
 } from "lucide-react";
+import { confirmDialog } from "@/components/ConfirmDialog";
+import { useToast } from "@/context/ToastContext";
 
 export default function BackupRestorePage() {
+  const { toast } = useToast();
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
-  const [restoreResult, setRestoreResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
-  const [backupResult, setBackupResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBackup = async () => {
     setIsBackingUp(true);
-    setBackupResult(null);
     try {
-      const res = await fetch("/api/backup");
+     const res = await fetch("/api/backup");
 
       if (!res.ok) {
         let pesan = `Gagal mengunduh backup (kode ${res.status}).`;
@@ -35,7 +35,7 @@ export default function BackupRestorePage() {
         } catch {
           // respons bukan JSON
         }
-        setBackupResult({ type: "error", text: pesan });
+        toast(pesan, "error");
         return;
       }
 
@@ -54,15 +54,9 @@ export default function BackupRestorePage() {
       document.body.removeChild(a);
 
       const sizeKb = (blob.size / 1024).toFixed(1);
-      setBackupResult({
-        type: "success",
-        text: `Backup berhasil diunduh: ${fileName} (${sizeKb} KB). Simpan file ini di tempat aman.`,
-      });
+      toast(`Backup berhasil diunduh: ${fileName} (${sizeKb} KB). Simpan file ini di tempat aman.`, "success");
     } catch (err: any) {
-      setBackupResult({
-        type: "error",
-        text: "Gagal mengunduh backup: " + (err?.message || "kesalahan tidak diketahui"),
-      });
+      toast("Gagal mengunduh backup: " + (err?.message || "kesalahan tidak diketahui"), "error");
     } finally {
       setIsBackingUp(false);
     }
@@ -71,19 +65,21 @@ export default function BackupRestorePage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setSelectedFile(file);
-    setRestoreResult(null);
   };
 
   const handleRestore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) return;
 
-    if (!confirm("Apakah Anda yakin ingin restore database? Data saat ini akan di-backup otomatis sebelum replace.")) {
-      return;
-    }
+    const result = await confirmDialog.confirm({
+      title: "Konfirmasi Restore",
+      message: "Apakah Anda yakin ingin restore database? Data saat ini akan di-backup otomatis sebelum replace.",
+      variant: "danger",
+      confirmLabel: "Restore",
+    });
+    if (!result.confirmed) return;
 
     setIsRestoring(true);
-    setRestoreResult(null);
 
     try {
       const fd = new FormData();
@@ -97,12 +93,12 @@ export default function BackupRestorePage() {
       const json = await res.json();
 
       if (res.ok && json.success) {
-        setRestoreResult({ type: "success", text: json.message });
+        toast(json.message, "success");
       } else {
-        setRestoreResult({ type: "error", text: json.error || "Gagal restore database" });
+        toast(json.error || "Gagal restore database", "error");
       }
     } catch (err: any) {
-      setRestoreResult({ type: "error", text: err.message || "Terjadi kesalahan saat restore" });
+      toast(err.message || "Terjadi kesalahan saat restore", "error");
     } finally {
       setIsRestoring(false);
       setSelectedFile(null);
@@ -123,40 +119,6 @@ export default function BackupRestorePage() {
           </p>
         </div>
       </div>
-
-      {restoreResult && (
-        <div
-          className={`p-4 rounded-2xl border flex items-center gap-3 text-sm ${
-            restoreResult.type === "success"
-              ? "bg-emerald-950/80 border-emerald-500 text-emerald-200"
-              : "bg-rose-950/80 border-rose-500 text-rose-200"
-          }`}
-        >
-          {restoreResult.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 shrink-0" />
-          )}
-          <span>{restoreResult.text}</span>
-        </div>
-      )}
-
-      {backupResult && (
-        <div
-          className={`p-4 rounded-2xl border flex items-center gap-3 text-sm ${
-            backupResult.type === "success"
-              ? "bg-emerald-950/80 border-emerald-500 text-emerald-200"
-              : "bg-rose-950/80 border-rose-500 text-rose-200"
-          }`}
-        >
-          {backupResult.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 shrink-0" />
-          )}
-          <span>{backupResult.text}</span>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Backup Section */}

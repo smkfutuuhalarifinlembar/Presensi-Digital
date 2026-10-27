@@ -9,16 +9,15 @@ import {
   Activity,
   FileText,
   ShieldAlert,
-  CheckCircle2,
   Database,
-  Clock,
 } from "lucide-react";
+import { confirmDialog } from "@/components/ConfirmDialog";
+import { useToast } from "@/context/ToastContext";
 
 export default function DataManagementPage() {
+  const { toast } = useToast();
   const [counts, setCounts] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [deleteResult, setDeleteResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Filters for targeted deletion
@@ -53,12 +52,15 @@ export default function DataManagementPage() {
   }, []);
 
   const handleDelete = async (type: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus ${getDeleteLabel(type)}? Tindakan ini tidak dapat dibatalkan.`)) {
-      return;
-    }
+    const result = await confirmDialog.confirm({
+      title: "Konfirmasi Hapus Data",
+      message: `Apakah Anda yakin ingin menghapus ${getDeleteLabel(type)}? Tindakan ini tidak dapat dibatalkan.`,
+      variant: "danger",
+      confirmLabel: "Hapus",
+    });
+    if (!result.confirmed) return;
 
     setIsDeleting(true);
-    setDeleteResult(null);
 
     try {
       let url = `/api/data-management?type=${type}`;
@@ -86,16 +88,15 @@ export default function DataManagementPage() {
       const json = await res.json();
 
       if (res.ok && json.success) {
-        setDeleteResult({ type: "success", text: json.message });
+        toast(json.message, "success");
         loadCounts();
       } else {
-        setDeleteResult({ type: "error", text: json.error || "Gagal menghapus data" });
+        toast(json.error || "Gagal menghapus data", "error");
       }
     } catch (err: any) {
-      setDeleteResult({ type: "error", text: err.message || "Terjadi kesalahan" });
+      toast(err.message || "Terjadi kesalahan", "error");
     } finally {
       setIsDeleting(false);
-      setDeleteConfirm(null);
     }
   };
 
@@ -121,24 +122,7 @@ export default function DataManagementPage() {
             Kelola dan hapus data presensi, orang, kegiatan (Super Admin only)
           </p>
         </div>
-      </div>
-
-      {deleteResult && (
-        <div
-          className={`p-4 rounded-2xl border flex items-center gap-3 text-sm ${
-            deleteResult.type === "success"
-              ? "bg-emerald-950/80 border-emerald-500 text-emerald-200"
-              : "bg-rose-950/80 border-rose-500 text-rose-200"
-          }`}
-        >
-          {deleteResult.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          ) : (
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-          )}
-          <span>{deleteResult.text}</span>
-        </div>
-      )}
+       </div>
 
       {isLoading ? (
         <div className="p-12 text-center text-slate-400">

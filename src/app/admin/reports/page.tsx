@@ -21,6 +21,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { getTodayDateString, formatDateIndo } from "@/lib/date-utils";
+import { useToast } from "@/context/ToastContext";
 
 type ViewMode = "list" | "matrix";
 
@@ -632,6 +633,8 @@ function MatrixView({
   category: string;
   onSaved: () => Promise<void> | void;
 }) {
+  const { toast } = useToast();
+
   if (!matrix || !matrix.dates || matrix.dates.length === 0) {
     return (
       <div className="p-12 text-center text-slate-500 text-sm">
@@ -676,7 +679,7 @@ function MatrixView({
       await onSaved();
     } catch (err: any) {
       console.error("Gagal menyimpan sel:", err);
-      alert(err?.message || "Gagal menyimpan perubahan");
+      toast(err?.message || "Gagal menyimpan perubahan", "error");
     } finally {
       setSaving(false);
     }
